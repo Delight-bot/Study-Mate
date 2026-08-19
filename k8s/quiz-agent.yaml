@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quiz-agent
+  namespace: studeymate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quiz-agent
+  template:
+    metadata:
+      labels:
+        app: quiz-agent
+    spec:
+      containers:
+        - name: quiz-agent
+          image: studeymate/quiz-agent:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8001
+          env:
+            - name: POSTGRES_DB
+              value: "quiz_agent"
+          envFrom:
+            - configMapRef:
+                name: studeymate-config
+            - secretRef:
+                name: studeymate-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 250m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: quiz-agent
+  namespace: studeymate
+spec:
+  selector:
+    app: quiz-agent
+  ports:
+    - port: 8001
+      targetPort: 8001
+---
+# Note: automatic scaling on CPU requires metrics-server to be installed in the
+# cluster (not present by default in Docker Desktop's Kubernetes). The manifest
+# is still valid and `kubectl scale deployment/quiz-agent --replicas=5` works
+# regardless of metrics-server.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: quiz-agent
+  namespace: studeymate
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: quiz-agent
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

@@ -1,0 +1,287 @@
+Here is a **clean, simple, and complete project structure** that includes **features 1–5**, with special emphasis on **number 3 (Memory-Based Subject Profiling)** since you said you like that one.
+
+I’ll lay this out in a format that is easy to build, easy to explain in interviews, and easy to extend later.
+
+---
+
+# 📦 **PROJECT TITLE:**
+
+**LLM Performance Router with Adaptive Prompting and Subject Profiling**
+
+---
+
+# 🧱 **TOP-LEVEL STRUCTURE**
+
+```
+/llm-router
+    /backend
+        /routers
+        /services
+        /models
+        /memory
+        /evaluation
+        /utils
+        app.py
+    /frontend
+        /components
+        /pages
+        /hooks
+        main.jsx
+    /database
+        schema.sql
+        seeds.json
+    README.md
+```
+
+---
+
+# 🗂️ **DETAILED STRUCTURE**
+
+## 📁 **1. Backend (FastAPI or Flask)**
+
+This is the brain of the system.
+
+### `/backend/app.py`
+
+* Starts the API
+* Connects all routers (chat, scoring, memory, analytics)
+
+---
+
+### 📁 **/routers**
+
+Handles incoming API requests.
+
+```
+/routers
+    chat_router.py        # Chatbox interactions
+    llm_router.py         # Sends prompts to each LLM
+    score_router.py       # Stores user response choices
+    profile_router.py     # Returns user skill profile per subject
+```
+
+---
+
+### 📁 **/services**
+
+Logic for calling external APIs.
+
+```
+/services
+    openai_service.py
+    claude_service.py
+    gemini_service.py
+    deepseek_service.py
+    llama_service.py
+    prompt_optimizer.py  # Feature #1: Adaptive Prompt Rewriting
+```
+
+---
+
+### 📁 **/evaluation**
+
+Everything related to comparing and ranking model responses.
+
+```
+/evaluation
+    scorer.py               # Feature #2: Scoring responses
+    difficulty_detector.py  # Feature #3: Detect question difficulty
+    crosscheck.py           # Feature #4: Hallucination checking
+    fusion_engine.py        # Feature #5: Response fusion (optional)
+```
+
+---
+
+### 📁 **/memory**
+
+This is where your **Memory-Based Subject Profiling** system lives (feature #3).
+
+```
+/memory
+    user_history.py          # Stores/refines user behavior patterns
+    subject_classifier.py    # Determines subject of question (Chem, Calc, etc.)
+    profile_builder.py       # Builds "user subject performance" profile
+    routing_engine.py        # Decides which LLM goes first next time
+```
+
+---
+
+### 📁 **/models**
+
+Pydantic / dataclasses for structured data.
+
+```
+/models
+    ChatMessage.py
+    LLMResponse.py
+    EvaluationResult.py
+    SubjectProfile.py
+    UserPreference.py
+```
+
+---
+
+### 📁 **/utils**
+
+Small helper functions.
+
+```
+/utils
+    timing.py              # Measures response speed
+    text_cleaner.py
+    metadata.py            # Extracts keywords for subject classification
+```
+
+---
+
+# 🗃️ **2. Database**
+
+You can use SQLite to keep it simple.
+
+### `/database/schema.sql`
+
+Stores:
+
+### **Tables**
+
+* **users**
+* **llm_responses**
+* **user_choices** (which model the user picked)
+* **subjects** (Chemistry, Calculus, Programming)
+* **profiles** (Best LLM per subject)
+* **difficulty_scores**
+* **hallucination_logs**
+
+Example:
+
+```
+profiles table:
+user_id
+subject
+best_llm
+confidence
+wins_gpt
+wins_claude
+wins_gemini
+wins_deepseek
+wins_llama
+```
+
+---
+
+# 🖥️ **3. Frontend (React or Streamlit)**
+
+### `/frontend/pages/Chat.jsx`
+
+* Chatbox
+* Shows 5 model outputs
+* User selects best answer
+* Metadata refinement popup (“What exactly are you looking for?”)
+
+### `/frontend/pages/Dashboard.jsx`
+
+* Visualization of which LLM is best for each subject
+* Win rates and trends
+* Difficulty tracking
+* Hallucination stats
+
+### `/frontend/components`
+
+* ChatBox
+* LLMResponseCard
+* WinnerSelectionButton
+* SubjectTag
+* ProfileSummary
+
+---
+
+# 🧠 **4. Feature Integration Breakdown**
+
+Here’s how each feature fits into the structure:
+
+---
+
+## ⭐ **Feature 1 — Adaptive Prompt Rewriting**
+
+Located in:
+
+```
+/services/prompt_optimizer.py
+```
+
+Uses:
+
+* user behavior (from memory folder)
+* difficulty level
+* subject detected
+
+Outputs a custom prompt for each LLM.
+
+---
+
+## ⭐ **Feature 2 — Automatic Scoring System**
+
+Located in:
+
+```
+/evaluation/scorer.py
+```
+
+Metrics:
+
+* clarity
+* depth
+* formatting
+* response time
+* correctness (if possible)
+
+---
+
+## ⭐ **Feature 3 — Memory-Based Subject Profiling (YOUR FAVORITE)**
+
+Main folder:
+
+```
+/memory/
+```
+
+Flow:
+
+1. subject_classifier.py → detects topic
+2. user_history.py → logs user style + choices
+3. profile_builder.py → updates ranking per subject
+4. routing_engine.py → automatically picks top model next time
+
+---
+
+## ⭐ **Feature 4 — Hallucination Checker**
+
+Located in:
+
+```
+/evaluation/crosscheck.py
+```
+
+Methods:
+
+* Compare answers across LLMs
+* Flag inconsistencies
+* Optional external verification (WolframAlpha, Wikipedia)
+
+---
+
+## ⭐ **Feature 5 — Response Fusion**
+
+Located in:
+
+```
+/evaluation/fusion_engine.py
+```
+
+Combines strengths like:
+
+* GPT explanation + DeepSeek math + Gemini examples
+
+Produces a more robust answer.
+
+

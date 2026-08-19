@@ -1,0 +1,19 @@
+CREATE TABLE IF NOT EXISTS flashcards (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    subject TEXT NOT NULL,
+    front TEXT NOT NULL,
+    back TEXT NOT NULL,
+    interval INTEGER NOT NULL DEFAULT 0,
+    ease_factor REAL NOT NULL DEFAULT 2.5,
+    repetitions INTEGER NOT NULL DEFAULT 0,
+    next_review_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS flashcard_reviews (
+    id SERIAL PRIMARY KEY,
+    flashcard_id INTEGER NOT NULL REFERENCES flashcards(id),
+    quality INTEGER NOT NULL,
+    reviewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

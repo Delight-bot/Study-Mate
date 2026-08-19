@@ -1,0 +1,107 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-studeymate}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-studeymate_dev_password}
+      POSTGRES_MULTIPLE_DATABASES: llm_router,quiz_agent,flashcard_agent,notes_agent
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-multi-db.sh:/docker-entrypoint-initdb.d/init-multi-db.sh
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-studeymate}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+
+  llm-router:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: llm_router
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  quiz-agent:
+    build: ./services/quiz-agent
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: quiz_agent
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  flashcard-agent:
+    build: ./services/flashcard-agent
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: flashcard_agent
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notes-agent:
+    build: ./services/notes-agent
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: notes_agent
+      QDRANT_URL: http://qdrant:6333
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  gateway:
+    build: ./gateway
+    environment:
+      LLM_ROUTER_URL: http://llm-router:8000
+      QUIZ_AGENT_URL: http://quiz-agent:8001
+      FLASHCARD_AGENT_URL: http://flashcard-agent:8002
+      NOTES_AGENT_URL: http://notes-agent:8003
+    ports:
+      - "8080:8080"
+    depends_on:
+      - llm-router
+      - quiz-agent
+      - flashcard-agent
+      - notes-agent
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - gateway
+
+volumes:
+  qdrant_storage:
+  postgres_data:

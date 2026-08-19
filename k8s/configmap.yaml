@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: studeymate-config
+  namespace: studeymate
+data:
+  LLM_ROUTER_URL: "http://llm-router:8000"
+  QUIZ_AGENT_URL: "http://quiz-agent:8001"
+  FLASHCARD_AGENT_URL: "http://flashcard-agent:8002"
+  NOTES_AGENT_URL: "http://notes-agent:8003"
+  QDRANT_URL: "http://qdrant:6333"
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"

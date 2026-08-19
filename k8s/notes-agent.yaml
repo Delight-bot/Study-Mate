@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notes-agent
+  namespace: studeymate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notes-agent
+  template:
+    metadata:
+      labels:
+        app: notes-agent
+    spec:
+      containers:
+        - name: notes-agent
+          image: studeymate/notes-agent:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8003
+          env:
+            - name: POSTGRES_DB
+              value: "notes_agent"
+          envFrom:
+            - configMapRef:
+                name: studeymate-config
+            - secretRef:
+                name: studeymate-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 250m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notes-agent
+  namespace: studeymate
+spec:
+  selector:
+    app: notes-agent
+  ports:
+    - port: 8003
+      targetPort: 8003

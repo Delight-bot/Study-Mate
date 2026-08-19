@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flashcard-agent
+  namespace: studeymate
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flashcard-agent
+  template:
+    metadata:
+      labels:
+        app: flashcard-agent
+    spec:
+      containers:
+        - name: flashcard-agent
+          image: studeymate/flashcard-agent:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8002
+          env:
+            - name: POSTGRES_DB
+              value: "flashcard_agent"
+          envFrom:
+            - configMapRef:
+                name: studeymate-config
+            - secretRef:
+                name: studeymate-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 250m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: flashcard-agent
+  namespace: studeymate
+spec:
+  selector:
+    app: flashcard-agent
+  ports:
+    - port: 8002
+      targetPort: 8002
