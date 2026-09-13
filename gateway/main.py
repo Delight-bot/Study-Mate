@@ -15,20 +15,29 @@ app.add_middleware(
 )
 
 
-def _url(env_var: str, default: str) -> str:
-    """Read a base URL from env, adding a scheme if one wasn't given.
+def _url(env_var: str, default: str, port: int) -> str:
+    """Read a base URL from env, filling in scheme/port if only a bare
+    hostname was given.
 
-    Render's Blueprint `fromService` linking fills in a bare host (no
-    scheme), so this accepts either form.
+    Render's Blueprint `fromService` linking fills in a bare internal
+    hostname (e.g. "studeymate-llm-router") with no scheme and no port —
+    Render's private network is plain HTTP and, unlike the public
+    *.onrender.com edge, doesn't forward a default port to the app's
+    actual one, so it must be appended explicitly (same idea as
+    docker-compose's "service-name:port" convention).
     """
     value = os.getenv(env_var, default)
-    return value if "://" in value else f"https://{value}"
+    if "://" in value:
+        return value
+    if ":" not in value:
+        value = f"{value}:{port}"
+    return f"http://{value}"
 
 
-LLM_ROUTER_URL = _url("LLM_ROUTER_URL", "http://localhost:8000")
-QUIZ_AGENT_URL = _url("QUIZ_AGENT_URL", "http://localhost:8001")
-FLASHCARD_AGENT_URL = _url("FLASHCARD_AGENT_URL", "http://localhost:8002")
-NOTES_AGENT_URL = _url("NOTES_AGENT_URL", "http://localhost:8003")
+LLM_ROUTER_URL = _url("LLM_ROUTER_URL", "http://localhost:8000", 8000)
+QUIZ_AGENT_URL = _url("QUIZ_AGENT_URL", "http://localhost:8001", 8001)
+FLASHCARD_AGENT_URL = _url("FLASHCARD_AGENT_URL", "http://localhost:8002", 8002)
+NOTES_AGENT_URL = _url("NOTES_AGENT_URL", "http://localhost:8003", 8003)
 
 # First path segment after /api/ -> upstream base URL. Each upstream mounts its
 # own routes under the same /api/<segment> prefix, so the full path is forwarded unchanged.
@@ -58,7 +67,10 @@ HOP_BY_HOP_HEADERS = {
 @app.get("/health")
 async def health():
     results = {}
-    async with httpx.AsyncClient(timeout=5.0) as client:
+    # Generous timeout: Render's free tier can take tens of seconds to wake
+    # a sleeping instance, and this endpoint is a diagnostic check, not one
+    # a user is waiting on.
+    async with httpx.AsyncClient(timeout=30.0) as client:
         for name, base_url in SERVICES.items():
             try:
                 resp = await client.get(f"{base_url}/health")

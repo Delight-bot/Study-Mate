@@ -23,11 +23,15 @@ _client: AsyncQdrantClient | None = None
 def get_client() -> AsyncQdrantClient:
     global _client
     if _client is None:
-        # Render's Blueprint `fromService` linking fills in a bare host (no
-        # scheme), so accept either form.
+        # Render's Blueprint `fromService` linking fills in a bare internal
+        # hostname with no scheme or port (Render's private network doesn't
+        # forward a default port the way the public *.onrender.com edge
+        # does), so fill both in when only a bare host was given.
         url = os.getenv("QDRANT_URL", "http://localhost:6333")
         if "://" not in url:
-            url = f"https://{url}"
+            if ":" not in url:
+                url = f"{url}:6333"
+            url = f"http://{url}"
         _client = AsyncQdrantClient(url=url)
     return _client
 
