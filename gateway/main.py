@@ -39,6 +39,11 @@ QUIZ_AGENT_URL = _url("QUIZ_AGENT_URL", "http://localhost:8001", 8001)
 FLASHCARD_AGENT_URL = _url("FLASHCARD_AGENT_URL", "http://localhost:8002", 8002)
 NOTES_AGENT_URL = _url("NOTES_AGENT_URL", "http://localhost:8003", 8003)
 
+print(f"[gateway] LLM_ROUTER_URL={LLM_ROUTER_URL}")
+print(f"[gateway] QUIZ_AGENT_URL={QUIZ_AGENT_URL}")
+print(f"[gateway] FLASHCARD_AGENT_URL={FLASHCARD_AGENT_URL}")
+print(f"[gateway] NOTES_AGENT_URL={NOTES_AGENT_URL}")
+
 # First path segment after /api/ -> upstream base URL. Each upstream mounts its
 # own routes under the same /api/<segment> prefix, so the full path is forwarded unchanged.
 ROUTES = {
@@ -75,8 +80,11 @@ async def health():
             try:
                 resp = await client.get(f"{base_url}/health")
                 results[name] = resp.status_code == 200
-            except httpx.HTTPError:
+                if resp.status_code != 200:
+                    print(f"[gateway health] {name} ({base_url}) -> HTTP {resp.status_code}: {resp.text[:200]}")
+            except httpx.HTTPError as e:
                 results[name] = False
+                print(f"[gateway health] {name} ({base_url}) -> {type(e).__name__}: {e}")
     return {"status": "healthy" if all(results.values()) else "degraded", "services": results}
 
 
