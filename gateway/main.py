@@ -101,13 +101,21 @@ async def proxy(path: str, request: Request):
     headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS}
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-        upstream_response = await client.request(
-            request.method,
-            target_url,
-            params=request.query_params,
-            content=body,
-            headers=headers,
-        )
+        try:
+            upstream_response = await client.request(
+                request.method,
+                target_url,
+                params=request.query_params,
+                content=body,
+                headers=headers,
+            )
+        except httpx.HTTPError as e:
+            print(f"[gateway proxy] {segment} ({target_url}) -> {type(e).__name__}: {e}")
+            return Response(
+                content=f'{{"detail":"Upstream service ({segment}) unreachable or timed out: {e}"}}',
+                status_code=502,
+                media_type="application/json",
+            )
 
     response_headers = {
         k: v for k, v in upstream_response.headers.items() if k.lower() not in HOP_BY_HOP_HEADERS

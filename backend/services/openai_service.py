@@ -6,7 +6,10 @@ import os
 class OpenAIService(BaseLLMService):
     """Service for OpenAI GPT models"""
 
-    def __init__(self, api_key: str = None, model: str = "gpt-4", temperature: float = 0.7, max_tokens: int = 1000):
+    # gpt-4 (the original, non-turbo model) is slow enough (often 15-40s for
+    # a full response) to trip Render free-tier's edge timeout on its own —
+    # gpt-4o-mini is fast, current, and cheap enough for this comparison use case.
+    def __init__(self, api_key: str = None, model: str = "gpt-4o-mini", temperature: float = 0.7, max_tokens: int = 1000):
         api_key = api_key or os.getenv("OPENAI_API_KEY")
         super().__init__(api_key, model, temperature, max_tokens)
         self.client = openai.AsyncOpenAI(api_key=self.api_key)
