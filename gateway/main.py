@@ -14,10 +14,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-LLM_ROUTER_URL = os.getenv("LLM_ROUTER_URL", "http://localhost:8000")
-QUIZ_AGENT_URL = os.getenv("QUIZ_AGENT_URL", "http://localhost:8001")
-FLASHCARD_AGENT_URL = os.getenv("FLASHCARD_AGENT_URL", "http://localhost:8002")
-NOTES_AGENT_URL = os.getenv("NOTES_AGENT_URL", "http://localhost:8003")
+
+def _url(env_var: str, default: str) -> str:
+    """Read a base URL from env, adding a scheme if one wasn't given.
+
+    Render's Blueprint `fromService` linking fills in a bare host (no
+    scheme), so this accepts either form.
+    """
+    value = os.getenv(env_var, default)
+    return value if "://" in value else f"https://{value}"
+
+
+LLM_ROUTER_URL = _url("LLM_ROUTER_URL", "http://localhost:8000")
+QUIZ_AGENT_URL = _url("QUIZ_AGENT_URL", "http://localhost:8001")
+FLASHCARD_AGENT_URL = _url("FLASHCARD_AGENT_URL", "http://localhost:8002")
+NOTES_AGENT_URL = _url("NOTES_AGENT_URL", "http://localhost:8003")
 
 # First path segment after /api/ -> upstream base URL. Each upstream mounts its
 # own routes under the same /api/<segment> prefix, so the full path is forwarded unchanged.

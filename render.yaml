@@ -1,0 +1,128 @@
+databases:
+  - name: studeymate-db
+    databaseName: studeymate
+    user: studeymate
+    plan: free
+
+services:
+  # --- Qdrant (vector store used by notes-agent) ---
+  - type: web
+    name: studeymate-qdrant
+    runtime: image
+    plan: free
+    image:
+      url: docker.io/qdrant/qdrant:latest
+    envVars:
+      - key: QDRANT__SERVICE__HTTP_PORT
+        value: 6333
+
+  # --- LLM Performance Router (main backend) ---
+  - type: web
+    name: studeymate-llm-router
+    runtime: docker
+    plan: free
+    dockerfilePath: backend/Dockerfile
+    dockerContext: .
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase: { name: studeymate-db, property: host }
+      - key: POSTGRES_PORT
+        fromDatabase: { name: studeymate-db, property: port }
+      - key: POSTGRES_USER
+        fromDatabase: { name: studeymate-db, property: user }
+      - key: POSTGRES_PASSWORD
+        fromDatabase: { name: studeymate-db, property: password }
+      - key: POSTGRES_DB
+        fromDatabase: { name: studeymate-db, property: database }
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: LLAMA_API_KEY
+        sync: false
+
+  # --- Quiz agent ---
+  - type: web
+    name: studeymate-quiz-agent
+    runtime: docker
+    plan: free
+    dockerfilePath: services/quiz-agent/Dockerfile
+    dockerContext: services/quiz-agent
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase: { name: studeymate-db, property: host }
+      - key: POSTGRES_PORT
+        fromDatabase: { name: studeymate-db, property: port }
+      - key: POSTGRES_USER
+        fromDatabase: { name: studeymate-db, property: user }
+      - key: POSTGRES_PASSWORD
+        fromDatabase: { name: studeymate-db, property: password }
+      - key: POSTGRES_DB
+        fromDatabase: { name: studeymate-db, property: database }
+      - key: OPENAI_API_KEY
+        sync: false
+
+  # --- Flashcard agent ---
+  - type: web
+    name: studeymate-flashcard-agent
+    runtime: docker
+    plan: free
+    dockerfilePath: services/flashcard-agent/Dockerfile
+    dockerContext: services/flashcard-agent
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase: { name: studeymate-db, property: host }
+      - key: POSTGRES_PORT
+        fromDatabase: { name: studeymate-db, property: port }
+      - key: POSTGRES_USER
+        fromDatabase: { name: studeymate-db, property: user }
+      - key: POSTGRES_PASSWORD
+        fromDatabase: { name: studeymate-db, property: password }
+      - key: POSTGRES_DB
+        fromDatabase: { name: studeymate-db, property: database }
+      - key: OPENAI_API_KEY
+        sync: false
+
+  # --- Notes agent (uses Qdrant for embeddings search) ---
+  - type: web
+    name: studeymate-notes-agent
+    runtime: docker
+    plan: free
+    dockerfilePath: services/notes-agent/Dockerfile
+    dockerContext: services/notes-agent
+    envVars:
+      - key: POSTGRES_HOST
+        fromDatabase: { name: studeymate-db, property: host }
+      - key: POSTGRES_PORT
+        fromDatabase: { name: studeymate-db, property: port }
+      - key: POSTGRES_USER
+        fromDatabase: { name: studeymate-db, property: user }
+      - key: POSTGRES_PASSWORD
+        fromDatabase: { name: studeymate-db, property: password }
+      - key: POSTGRES_DB
+        fromDatabase: { name: studeymate-db, property: database }
+      - key: QDRANT_URL
+        fromService: { name: studeymate-qdrant, type: web, property: host }
+      - key: OPENAI_API_KEY
+        sync: false
+
+  # --- Gateway (the one public entry point; frontend talks to this) ---
+  - type: web
+    name: studeymate-gateway
+    runtime: docker
+    plan: free
+    dockerfilePath: gateway/Dockerfile
+    dockerContext: gateway
+    envVars:
+      - key: LLM_ROUTER_URL
+        fromService: { name: studeymate-llm-router, type: web, property: host }
+      - key: QUIZ_AGENT_URL
+        fromService: { name: studeymate-quiz-agent, type: web, property: host }
+      - key: FLASHCARD_AGENT_URL
+        fromService: { name: studeymate-flashcard-agent, type: web, property: host }
+      - key: NOTES_AGENT_URL
+        fromService: { name: studeymate-notes-agent, type: web, property: host }

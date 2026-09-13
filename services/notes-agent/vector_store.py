@@ -23,7 +23,12 @@ _client: AsyncQdrantClient | None = None
 def get_client() -> AsyncQdrantClient:
     global _client
     if _client is None:
-        _client = AsyncQdrantClient(url=os.getenv("QDRANT_URL", "http://localhost:6333"))
+        # Render's Blueprint `fromService` linking fills in a bare host (no
+        # scheme), so accept either form.
+        url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        if "://" not in url:
+            url = f"https://{url}"
+        _client = AsyncQdrantClient(url=url)
     return _client
 
 
