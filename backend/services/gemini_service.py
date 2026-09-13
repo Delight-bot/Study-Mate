@@ -6,7 +6,9 @@ import os
 class GeminiService(BaseLLMService):
     """Service for Google Gemini models"""
 
-    def __init__(self, api_key: str = None, model: str = "gemini-2.5-flash", temperature: float = 0.7, max_tokens: int = 1000):
+    # gemini-2.5-flash was retired; Google's API error names gemini-3.6-flash
+    # as its replacement.
+    def __init__(self, api_key: str = None, model: str = "gemini-3.6-flash", temperature: float = 0.7, max_tokens: int = 1000):
         api_key = api_key or os.getenv("GEMINI_API_KEY")
         super().__init__(api_key, model, temperature, max_tokens)
         genai.configure(api_key=self.api_key)
