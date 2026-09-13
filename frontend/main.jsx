@@ -1,19 +1,19 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import Chat from './pages/Chat'
 import Dashboard from './pages/Dashboard'
 import './styles.css'
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <div className="app">
         <header className="header">
           <h1>🤖 LLM Performance Router</h1>
           <nav>
-            <a href="/">Chat</a>
-            <a href="/dashboard">Dashboard</a>
+            <a href="#/">Chat</a>
+            <a href="#/dashboard">Dashboard</a>
           </nav>
         </header>
         <main className="main">
@@ -23,7 +23,7 @@ function App() {
           </Routes>
         </main>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
 
