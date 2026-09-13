@@ -105,8 +105,12 @@ services:
         fromDatabase: { name: studeymate-db, property: password }
       - key: POSTGRES_DB
         fromDatabase: { name: studeymate-db, property: database }
+      # fromService's private-network linking wasn't reachable on the free
+      # plan (or wasn't wired the way we expected), so use the service's
+      # actual public URL instead — confirmed to match this exact pattern
+      # by the gateway's own URL after deploy.
       - key: QDRANT_URL
-        fromService: { name: studeymate-qdrant, type: web, property: host }
+        value: https://studeymate-qdrant.onrender.com
       - key: OPENAI_API_KEY
         sync: false
 
@@ -118,11 +122,13 @@ services:
     dockerfilePath: gateway/Dockerfile
     dockerContext: gateway
     envVars:
+      # See the QDRANT_URL comment above re: why these are literal public
+      # URLs rather than fromService links.
       - key: LLM_ROUTER_URL
-        fromService: { name: studeymate-llm-router, type: web, property: host }
+        value: https://studeymate-llm-router.onrender.com
       - key: QUIZ_AGENT_URL
-        fromService: { name: studeymate-quiz-agent, type: web, property: host }
+        value: https://studeymate-quiz-agent.onrender.com
       - key: FLASHCARD_AGENT_URL
-        fromService: { name: studeymate-flashcard-agent, type: web, property: host }
+        value: https://studeymate-flashcard-agent.onrender.com
       - key: NOTES_AGENT_URL
-        fromService: { name: studeymate-notes-agent, type: web, property: host }
+        value: https://studeymate-notes-agent.onrender.com
