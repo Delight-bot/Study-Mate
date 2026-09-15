@@ -3,6 +3,8 @@ import axios from '../api'
 import { setSession } from '../auth'
 import CatMark from '../components/CatMark'
 
+const DEMO_CREDENTIALS = { username: 'demo_user', password: 'demo1234' }
+
 export default function Login({ onAuthed }) {
   const [mode, setMode] = useState('login') // 'login' | 'register'
   const [username, setUsername] = useState('')
@@ -11,17 +13,14 @@ export default function Login({ onAuthed }) {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
 
-  const submit = async (e) => {
-    e.preventDefault()
-    if (!username.trim() || !password.trim()) return
+  const logIn = async (loginUsername, loginPassword) => {
     setBusy(true)
     setError(null)
-
     try {
       const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register'
       const payload = mode === 'login'
-        ? { username: username.trim(), password }
-        : { username: username.trim(), email: email.trim() || null, password }
+        ? { username: loginUsername, password: loginPassword }
+        : { username: loginUsername, email: email.trim() || null, password: loginPassword }
 
       const res = await axios.post(endpoint, payload)
       setSession({ token: res.data.token, userId: res.data.user_id, username: res.data.username })
@@ -31,6 +30,17 @@ export default function Login({ onAuthed }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (!username.trim() || !password.trim()) return
+    logIn(username.trim(), password)
+  }
+
+  const continueAsDemo = () => {
+    setMode('login')
+    logIn(DEMO_CREDENTIALS.username, DEMO_CREDENTIALS.password)
   }
 
   return (
@@ -88,6 +98,10 @@ export default function Login({ onAuthed }) {
             {busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account'}
           </button>
         </form>
+
+        <button className="btn btn-ghost btn-block auth-demo-btn" onClick={continueAsDemo} disabled={busy}>
+          Continue as demo
+        </button>
       </div>
     </div>
   )

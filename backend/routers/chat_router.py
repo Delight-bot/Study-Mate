@@ -42,6 +42,25 @@ llm_services = get_available_services()
 
 prompt_optimizer = PromptOptimizer()
 
+# A single slow/misbehaving provider must not block the whole comparison
+# indefinitely — cap each call and let the others still come back.
+# (The deprecated google-generativeai SDK has been observed to hang
+# indefinitely when run concurrently with another async call in the same
+# event loop, rather than erroring quickly — this bound exists specifically
+# to contain that, but applies to any provider.)
+LLM_TIMEOUT_SECONDS = 30
+
+
+async def _timed_generate_with_timeout(service, prompt: str) -> dict:
+    try:
+        return await asyncio.wait_for(service.timed_generate(prompt), timeout=LLM_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        # Re-raised as a plain TimeoutError (with a message) rather than left
+        # as asyncio.TimeoutError so it flows through the same "isinstance(result,
+        # Exception)" branch below as any other failure, with a readable message
+        # instead of str(asyncio.TimeoutError()) == "".
+        raise TimeoutError(f"timed out after {LLM_TIMEOUT_SECONDS}s")
+
 @router.post("/ask", response_model=ChatResponse)
 async def ask_question(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     """
@@ -84,10 +103,11 @@ async def ask_question(request: ChatRequest, current_user: dict = Depends(get_cu
                 subject=request.subject
             )
 
-        # Call all LLMs in parallel
+        # Call all LLMs in parallel — each individually time-bounded so one
+        # slow/hanging provider can't block the whole comparison.
         tasks = []
         for llm_name, service in llm_services.items():
-            tasks.append(service.timed_generate(prompts[llm_name]))
+            tasks.append(_timed_generate_with_timeout(service, prompts[llm_name]))
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 

@@ -52,6 +52,7 @@ ROUTES = {
     "score": LLM_ROUTER_URL,
     "profile": LLM_ROUTER_URL,
     "contest": LLM_ROUTER_URL,
+    "auth": LLM_ROUTER_URL,
     "quiz": QUIZ_AGENT_URL,
     "flashcards": FLASHCARD_AGENT_URL,
     "notes": NOTES_AGENT_URL,

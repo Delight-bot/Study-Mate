@@ -1350,3 +1350,7 @@ h1, h2, h3, h4 {
   flex-direction: column;
   gap: 0.7rem;
 }
+
+.auth-demo-btn {
+  margin-top: 0.8rem;
+}

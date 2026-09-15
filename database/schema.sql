@@ -129,9 +129,12 @@ CREATE TABLE IF NOT EXISTS duel_participants (
     FOREIGN KEY (duel_id) REFERENCES study_duels(id)
 );
 
--- Insert default demo user (the frontend has no auth flow and hardcodes user_id=1 everywhere)
-INSERT INTO users (id, username, email) VALUES (1, 'demo_user', 'demo@studeymate.local')
-ON CONFLICT (id) DO NOTHING;
+-- Default demo account (username: demo_user, password: demo1234) so there's
+-- something to log in with out of the box. COALESCE keeps this from ever
+-- clobbering a real password if one's already been set.
+INSERT INTO users (id, username, email, password_hash)
+VALUES (1, 'demo_user', 'demo@studeymate.local', '$2b$12$DzrjGL2RQQ4J2VRa4XdsTuLadnJb33rGrynEOc6/E8r8p6vHTP5I2')
+ON CONFLICT (id) DO UPDATE SET password_hash = COALESCE(users.password_hash, EXCLUDED.password_hash);
 SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE((SELECT MAX(id) FROM users), 1));
 
 -- Insert default subjects
