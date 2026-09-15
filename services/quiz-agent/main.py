@@ -70,6 +70,34 @@ async def generate_quiz(req: GenerateQuizRequest):
     }
 
 
+@router.get("/{quiz_id}")
+async def get_quiz(quiz_id: int):
+    quiz_rows = await execute_query(
+        "SELECT id, subject, difficulty FROM quizzes WHERE id = ?",
+        (quiz_id,),
+    )
+    if not quiz_rows:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    question_rows = await execute_query(
+        "SELECT id, question, choices FROM quiz_questions WHERE quiz_id = ? ORDER BY id",
+        (quiz_id,),
+    )
+
+    return {
+        "quiz_id": quiz_id,
+        "subject": quiz_rows[0]["subject"],
+        "questions": [
+            {
+                "id": row["id"],
+                "question": row["question"],
+                "choices": json.loads(row["choices"]),
+            }
+            for row in question_rows
+        ],
+    }
+
+
 @router.post("/{quiz_id}/submit")
 async def submit_quiz(quiz_id: int, req: SubmitQuizRequest):
     rows = await execute_query(

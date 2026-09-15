@@ -137,17 +137,41 @@ async def ask_question(request: ChatRequest):
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 @router.get("/history/{user_id}")
-async def get_chat_history(user_id: int, limit: int = 20):
-    """Get chat history for a user"""
+async def get_chat_history(user_id: int, limit: int = 20, subject: str = None):
+    """Get chat history for a user, optionally scoped to one subject/room"""
     try:
-        results = await execute_query(
-            """SELECT DISTINCT question, subject_id, created_at
-               FROM llm_responses
-               WHERE user_id = ?
-               ORDER BY created_at DESC
-               LIMIT ?""",
-            (user_id, limit)
-        )
+        if subject:
+            results = await execute_query(
+                """SELECT DISTINCT r.question, r.subject_id, s.name as subject_name, r.created_at
+                   FROM llm_responses r
+                   JOIN subjects s ON r.subject_id = s.id
+                   WHERE r.user_id = ? AND s.name = ?
+                   ORDER BY r.created_at DESC
+                   LIMIT ?""",
+                (user_id, subject, limit)
+            )
+        else:
+            results = await execute_query(
+                """SELECT DISTINCT r.question, r.subject_id, s.name as subject_name, r.created_at
+                   FROM llm_responses r
+                   LEFT JOIN subjects s ON r.subject_id = s.id
+                   WHERE r.user_id = ?
+                   ORDER BY r.created_at DESC
+                   LIMIT ?""",
+                (user_id, limit)
+            )
         return [dict(row) for row in results]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching history: {str(e)}")
+
+
+@router.get("/subjects")
+async def list_subjects():
+    """List available subjects/rooms to ask questions in"""
+    try:
+        results = await execute_query(
+            "SELECT id, name, description FROM subjects ORDER BY name"
+        )
+        return [dict(row) for row in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching subjects: {str(e)}")
