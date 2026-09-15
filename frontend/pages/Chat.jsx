@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import axios from '../api'
 import RoomSidebar from '../components/RoomSidebar'
+import MarkdownAnswer from '../components/MarkdownAnswer'
 
 const LLM_ORDER = ['gpt', 'claude', 'gemini', 'deepseek', 'llama']
 
@@ -152,7 +153,7 @@ export default function Chat({ activeRoom }) {
                       {resp.error ? (
                         <span className="response-error">Error: {resp.response_text}</span>
                       ) : (
-                        resp.response_text
+                        <MarkdownAnswer>{resp.response_text}</MarkdownAnswer>
                       )}
                     </div>
                     {selectedLLM === resp.llm_name && <span className="selected-tag">✓ selected</span>}

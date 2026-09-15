@@ -11,6 +11,7 @@ import RoomList from './components/RoomList'
 import StudyContest from './components/StudyContest'
 import { ROOM_STORAGE_KEY } from './components/rooms'
 import { getSession, clearSession } from './auth'
+import 'katex/dist/katex.min.css'
 import './styles.css'
 
 function getInitialRoom() {

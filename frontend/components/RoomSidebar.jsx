@@ -1,11 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react'
 import axios from '../api'
+import { extractPdfText } from './pdfText'
 
 const TEXT_EXTENSIONS = ['.txt', '.md', '.markdown']
 
 function isTextFile(file) {
   const name = file.name.toLowerCase()
   return file.type.startsWith('text/') || TEXT_EXTENSIONS.some((ext) => name.endsWith(ext))
+}
+
+function isPdfFile(file) {
+  return file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
 }
 
 function timeAgo(iso) {
@@ -26,6 +31,7 @@ export default function RoomSidebar({ room }) {
   const [saving, setSaving] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const [dragOver, setDragOver] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -44,12 +50,32 @@ export default function RoomSidebar({ room }) {
     return () => { cancelled = true }
   }, [room])
 
-  const readFile = (file) => {
+  const readFile = async (file) => {
     setUploadError(null)
-    if (!isTextFile(file)) {
-      setUploadError('Only .txt and .md files can be read right now — paste other content instead.')
+
+    if (isPdfFile(file)) {
+      setExtracting(true)
+      try {
+        const text = await extractPdfText(file)
+        if (!text) {
+          setUploadError('Could not find any selectable text in that PDF — it may be a scanned image without a text layer.')
+          return
+        }
+        setContent(text)
+        if (!title) setTitle(file.name.replace(/\.pdf$/i, ''))
+      } catch {
+        setUploadError('Could not read that PDF.')
+      } finally {
+        setExtracting(false)
+      }
       return
     }
+
+    if (!isTextFile(file)) {
+      setUploadError('Only .txt, .md, and .pdf files can be read right now — paste other content instead.')
+      return
+    }
+
     const reader = new FileReader()
     reader.onload = () => {
       setContent(String(reader.result || ''))
@@ -101,17 +127,17 @@ export default function RoomSidebar({ room }) {
         <h4>{room} notes</h4>
 
         <div
-          className={`dropzone ${dragOver ? 'drag-over' : ''}`}
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+          className={`dropzone ${dragOver ? 'drag-over' : ''} ${extracting ? 'busy' : ''}`}
+          onDragOver={(e) => { e.preventDefault(); if (!extracting) setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
+          onDrop={extracting ? undefined : handleDrop}
+          onClick={() => { if (!extracting) fileInputRef.current?.click() }}
         >
-          <span>Drop a .txt/.md file here, or click to choose</span>
+          <span>{extracting ? 'Extracting text from PDF…' : 'Drop a .txt, .md, or .pdf file here, or click to choose'}</span>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".txt,.md,.markdown,text/plain,text/markdown"
+            accept=".txt,.md,.markdown,.pdf,text/plain,text/markdown,application/pdf"
             hidden
             onChange={handleFilePick}
           />
