@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 import asyncio
+from auth import get_current_user
 from models import ChatRequest, ChatResponse, LLMResponse
 from services import (
     OpenAIService,
@@ -42,7 +43,7 @@ llm_services = get_available_services()
 prompt_optimizer = PromptOptimizer()
 
 @router.post("/ask", response_model=ChatResponse)
-async def ask_question(request: ChatRequest):
+async def ask_question(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     """
     Main endpoint for asking questions to all LLMs
 
@@ -52,6 +53,7 @@ async def ask_question(request: ChatRequest):
     3. Sends to all 5 LLMs in parallel
     4. Returns all responses for user to choose
     """
+    user_id = current_user["user_id"]
     try:
         # Get subject ID if subject is provided
         subject_id = None
@@ -68,7 +70,7 @@ async def ask_question(request: ChatRequest):
         if request.use_profiling and subject_id:
             profile_result = await execute_query(
                 "SELECT * FROM profiles WHERE user_id = ? AND subject_id = ?",
-                (request.user_id, subject_id)
+                (user_id, subject_id)
             )
             if profile_result:
                 profile = dict(profile_result[0])
@@ -114,7 +116,7 @@ async def ask_question(request: ChatRequest):
                        (user_id, question, subject_id, llm_name, response_text, response_time, token_count, prompt_used)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (
-                        request.user_id,
+                        user_id,
                         request.question,
                         subject_id,
                         llm_name,
@@ -136,9 +138,10 @@ async def ask_question(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
-@router.get("/history/{user_id}")
-async def get_chat_history(user_id: int, limit: int = 20, subject: str = None):
-    """Get chat history for a user, optionally scoped to one subject/room"""
+@router.get("/history")
+async def get_chat_history(limit: int = 20, subject: str = None, current_user: dict = Depends(get_current_user)):
+    """Get the current user's chat history, optionally scoped to one subject/room"""
+    user_id = current_user["user_id"]
     try:
         if subject:
             results = await execute_query(

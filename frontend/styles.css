@@ -94,6 +94,28 @@ h1, h2, h3, h4 {
   color: #fff;
 }
 
+.account-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.account-pill span {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.account-logout {
+  border: none;
+  background: none;
+  color: var(--pink-deep);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* ---------- Layout ---------- */
 
 .app-body {
@@ -1270,4 +1292,61 @@ h1, h2, h3, h4 {
 @keyframes drift-zzz {
   0%, 100% { opacity: 0.3; transform: translateY(0); }
   50% { opacity: 1; transform: translateY(-3px); }
+}
+
+/* ---------- Auth (login / register) ---------- */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 6px 0 var(--shadow-color);
+}
+
+.auth-brand {
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.auth-tabs {
+  display: flex;
+  background: var(--cream);
+  border-radius: 999px;
+  padding: 0.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.auth-tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.5rem;
+  border-radius: 999px;
+  font-family: 'Quicksand', sans-serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.auth-tab.active {
+  background: var(--pink);
+  color: #fff;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
 }

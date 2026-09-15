@@ -34,9 +34,9 @@ function saveDuel(duel) {
   }
 }
 
-export default function StudyContest({ focusSeconds, room, userId = 1 }) {
+export default function StudyContest({ focusSeconds, room, displayName = '' }) {
   const [duel, setDuel] = useState(loadSaved)
-  const [name, setName] = useState('')
+  const [name, setName] = useState(displayName)
   const [joinCode, setJoinCode] = useState('')
   const [participants, setParticipants] = useState([])
   const [error, setError] = useState(null)
@@ -82,7 +82,7 @@ export default function StudyContest({ focusSeconds, room, userId = 1 }) {
 
   const buildQuizFromNotes = async () => {
     try {
-      const res = await axios.get(`/api/notes/${userId}`)
+      const res = await axios.get('/api/notes/me')
       const sourceText = res.data
         .filter((n) => n.subject === room)
         .map((n) => n.content)
@@ -96,7 +96,6 @@ export default function StudyContest({ focusSeconds, room, userId = 1 }) {
       }
 
       const quizRes = await axios.post('/api/quiz/generate', {
-        user_id: userId,
         subject: room,
         source_text: sourceText,
         num_questions: NUM_QUESTIONS,
@@ -188,10 +187,7 @@ export default function StudyContest({ focusSeconds, room, userId = 1 }) {
 
     setBusy(true)
     try {
-      const submitRes = await axios.post(`/api/quiz/${duel.quizId}/submit`, {
-        user_id: userId,
-        answers,
-      })
+      const submitRes = await axios.post(`/api/quiz/${duel.quizId}/submit`, { answers })
       const { score, total } = submitRes.data
       await axios.post(`/api/contest/${duel.code}/quiz-result`, {
         participant_id: duel.participantId,

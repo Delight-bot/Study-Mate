@@ -1,8 +1,9 @@
 from typing import Optional
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
+from auth import get_current_user
 from database import execute_query, execute_update, init_database
 from vector_store import get_client, index_note, search_notes
 
@@ -11,7 +12,6 @@ router = APIRouter()
 
 
 class CreateNoteRequest(BaseModel):
-    user_id: int
     subject: str
     title: str
     content: str
@@ -33,32 +33,34 @@ async def health():
 
 
 @router.post("")
-async def create_note(req: CreateNoteRequest):
+async def create_note(req: CreateNoteRequest, current_user: dict = Depends(get_current_user)):
+    user_id = current_user["user_id"]
     note_id = await execute_update(
         "INSERT INTO notes (user_id, subject, title, content) VALUES (?, ?, ?, ?)",
-        (req.user_id, req.subject, req.title, req.content),
+        (user_id, req.subject, req.title, req.content),
     )
 
     try:
-        await index_note(note_id, req.user_id, req.subject, req.content)
+        await index_note(note_id, user_id, req.subject, req.content)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Embedding/index failed: {str(e)}")
 
-    return {"id": note_id, "user_id": req.user_id, "subject": req.subject, "title": req.title}
+    return {"id": note_id, "user_id": user_id, "subject": req.subject, "title": req.title}
 
 
-@router.get("/{user_id}")
-async def list_notes(user_id: int):
+@router.get("/me")
+async def list_notes(current_user: dict = Depends(get_current_user)):
     rows = await execute_query(
         "SELECT id, subject, title, content, created_at FROM notes WHERE user_id = ? "
         "ORDER BY created_at DESC",
-        (user_id,),
+        (current_user["user_id"],),
     )
     return [dict(row) for row in rows]
 
 
-@router.get("/{user_id}/search")
-async def search(user_id: int, q: str):
+@router.get("/me/search")
+async def search(q: str, current_user: dict = Depends(get_current_user)):
+    user_id = current_user["user_id"]
     try:
         matches = await search_notes(user_id, q)
     except Exception as e:
@@ -69,8 +71,8 @@ async def search(user_id: int, q: str):
     if note_ids:
         placeholders = ",".join("?" for _ in note_ids)
         rows = await execute_query(
-            f"SELECT id, title, subject FROM notes WHERE id IN ({placeholders})",
-            tuple(note_ids),
+            f"SELECT id, title, subject FROM notes WHERE id IN ({placeholders}) AND user_id = ?",
+            tuple(note_ids) + (user_id,),
         )
         notes_by_id = {row["id"]: dict(row) for row in rows}
 
@@ -82,6 +84,7 @@ async def search(user_id: int, q: str):
             "note": notes_by_id.get(m["note_id"]),
         }
         for m in matches
+        if m["note_id"] in notes_by_id
     ]
 
 

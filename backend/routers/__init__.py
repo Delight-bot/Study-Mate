@@ -1,3 +1,3 @@
-from . import chat_router, llm_router, score_router, profile_router, contest_router
+from . import chat_router, llm_router, score_router, profile_router, contest_router, auth_router
 
-__all__ = ['chat_router', 'llm_router', 'score_router', 'profile_router', 'contest_router']
+__all__ = ['chat_router', 'llm_router', 'score_router', 'profile_router', 'contest_router', 'auth_router']

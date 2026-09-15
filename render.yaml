@@ -4,6 +4,17 @@ databases:
     user: studeymate
     plan: free
 
+envVarGroups:
+  # JWT_SECRET must be identical across every service that verifies tokens
+  # (llm-router, quiz-agent, flashcard-agent, notes-agent) since each verifies
+  # independently rather than trusting the gateway. Set this once in the
+  # Render dashboard for this group — e.g. `python -c "import secrets;
+  # print(secrets.token_hex(32))"` — and every service below picks it up.
+  - name: studeymate-auth
+    envVars:
+      - key: JWT_SECRET
+        sync: false
+
 services:
   # --- Qdrant (vector store used by notes-agent) ---
   - type: web
@@ -23,6 +34,8 @@ services:
     plan: free
     dockerfilePath: backend/Dockerfile
     dockerContext: .
+    envVarGroups:
+      - studeymate-auth
     envVars:
       - key: POSTGRES_HOST
         fromDatabase: { name: studeymate-db, property: host }
@@ -52,6 +65,8 @@ services:
     plan: free
     dockerfilePath: services/quiz-agent/Dockerfile
     dockerContext: services/quiz-agent
+    envVarGroups:
+      - studeymate-auth
     envVars:
       - key: POSTGRES_HOST
         fromDatabase: { name: studeymate-db, property: host }
@@ -73,6 +88,8 @@ services:
     plan: free
     dockerfilePath: services/flashcard-agent/Dockerfile
     dockerContext: services/flashcard-agent
+    envVarGroups:
+      - studeymate-auth
     envVars:
       - key: POSTGRES_HOST
         fromDatabase: { name: studeymate-db, property: host }
@@ -94,6 +111,8 @@ services:
     plan: free
     dockerfilePath: services/notes-agent/Dockerfile
     dockerContext: services/notes-agent
+    envVarGroups:
+      - studeymate-auth
     envVars:
       - key: POSTGRES_HOST
         fromDatabase: { name: studeymate-db, property: host }

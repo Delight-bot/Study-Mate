@@ -13,7 +13,7 @@ sys.path.insert(0, str(backend_dir))
 load_dotenv()
 
 # Import routers
-from routers import chat_router, llm_router, score_router, profile_router, contest_router
+from routers import chat_router, llm_router, score_router, profile_router, contest_router, auth_router
 from database import init_database
 
 app = FastAPI(
@@ -71,6 +71,7 @@ app.include_router(llm_router.router, prefix="/api/llm", tags=["llm"])
 app.include_router(score_router.router, prefix="/api/score", tags=["scoring"])
 app.include_router(profile_router.router, prefix="/api/profile", tags=["profile"])
 app.include_router(contest_router.router, prefix="/api/contest", tags=["contest"])
+app.include_router(auth_router.router, prefix="/api/auth", tags=["auth"])
 
 if __name__ == "__main__":
     import uvicorn

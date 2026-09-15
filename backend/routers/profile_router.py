@@ -1,18 +1,20 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List
+from auth import get_current_user
 from models import SubjectProfile, ProfileSummary
 from database import execute_query
 
 router = APIRouter()
 
-@router.get("/{user_id}", response_model=ProfileSummary)
-async def get_user_profile(user_id: int):
+@router.get("/me", response_model=ProfileSummary)
+async def get_user_profile(current_user: dict = Depends(get_current_user)):
     """
-    Get complete profile for a user across all subjects
+    Get complete profile for the current user across all subjects
 
     Feature #3: Memory-Based Subject Profiling
     Returns which LLM performs best for each subject
     """
+    user_id = current_user["user_id"]
     try:
         # Get all profiles for this user
         results = await execute_query(
@@ -64,9 +66,10 @@ async def get_user_profile(user_id: int):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching profile: {str(e)}")
 
-@router.get("/{user_id}/subject/{subject_name}")
-async def get_subject_profile(user_id: int, subject_name: str):
-    """Get profile for a specific subject"""
+@router.get("/me/subject/{subject_name}")
+async def get_subject_profile(subject_name: str, current_user: dict = Depends(get_current_user)):
+    """Get the current user's profile for a specific subject"""
+    user_id = current_user["user_id"]
     try:
         # Get subject ID
         subject = await execute_query(
@@ -118,13 +121,14 @@ async def get_subject_profile(user_id: int, subject_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching subject profile: {str(e)}")
 
-@router.get("/{user_id}/recommendations")
-async def get_recommendations(user_id: int, subject: str = None):
+@router.get("/me/recommendations")
+async def get_recommendations(subject: str = None, current_user: dict = Depends(get_current_user)):
     """
-    Get LLM recommendations based on user's profile
+    Get LLM recommendations based on the current user's profile
 
     Returns which LLM to use for different subjects
     """
+    user_id = current_user["user_id"]
     try:
         if subject:
             # Get recommendation for specific subject

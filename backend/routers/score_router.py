@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from auth import get_current_user
 from models import UserChoice, UserFeedback
 from database import execute_query, execute_update
 import json
@@ -6,7 +7,7 @@ import json
 router = APIRouter()
 
 @router.post("/choose")
-async def record_user_choice(choice: UserChoice):
+async def record_user_choice(choice: UserChoice, current_user: dict = Depends(get_current_user)):
     """
     Record which LLM the user chose as the best response
 
@@ -14,6 +15,7 @@ async def record_user_choice(choice: UserChoice):
     1. user_choices table
     2. profiles table (win counts and best_llm)
     """
+    user_id = current_user["user_id"]
     try:
         # Get subject ID
         subject_id = None
@@ -25,7 +27,7 @@ async def record_user_choice(choice: UserChoice):
                 """SELECT subject_id FROM llm_responses
                    WHERE user_id = ? AND question = ?
                    LIMIT 1""",
-                (choice.user_id, choice.question)
+                (user_id, choice.question)
             )
             if result:
                 subject_id = result[0]['subject_id']
@@ -36,7 +38,7 @@ async def record_user_choice(choice: UserChoice):
                (user_id, question, subject_id, chosen_llm, all_responses, metadata)
                VALUES (?, ?, ?, ?, ?, ?)""",
             (
-                choice.user_id,
+                user_id,
                 choice.question,
                 subject_id,
                 choice.chosen_llm,
@@ -50,7 +52,7 @@ async def record_user_choice(choice: UserChoice):
             # Check if profile exists
             profile = await execute_query(
                 "SELECT * FROM profiles WHERE user_id = ? AND subject_id = ?",
-                (choice.user_id, subject_id)
+                (user_id, subject_id)
             )
 
             if profile:
@@ -62,13 +64,13 @@ async def record_user_choice(choice: UserChoice):
                            total_questions = total_questions + 1,
                            last_updated = CURRENT_TIMESTAMP
                        WHERE user_id = ? AND subject_id = ?""",
-                    (choice.user_id, subject_id)
+                    (user_id, subject_id)
                 )
 
                 # Recalculate best LLM
                 updated_profile = await execute_query(
                     "SELECT * FROM profiles WHERE user_id = ? AND subject_id = ?",
-                    (choice.user_id, subject_id)
+                    (user_id, subject_id)
                 )
                 if updated_profile:
                     profile_dict = dict(updated_profile[0])
@@ -83,7 +85,7 @@ async def record_user_choice(choice: UserChoice):
                         """UPDATE profiles
                            SET best_llm = ?, confidence = ?
                            WHERE user_id = ? AND subject_id = ?""",
-                        (best_llm, confidence, choice.user_id, subject_id)
+                        (best_llm, confidence, user_id, subject_id)
                     )
             else:
                 # Create new profile
@@ -91,7 +93,7 @@ async def record_user_choice(choice: UserChoice):
                     f"""INSERT INTO profiles
                        (user_id, subject_id, best_llm, confidence, wins_{choice.chosen_llm}, total_questions)
                        VALUES (?, ?, ?, ?, ?, ?)""",
-                    (choice.user_id, subject_id, choice.chosen_llm, 1.0, 1, 1)
+                    (user_id, subject_id, choice.chosen_llm, 1.0, 1, 1)
                 )
 
         return {
@@ -105,11 +107,20 @@ async def record_user_choice(choice: UserChoice):
         raise HTTPException(status_code=500, detail=f"Error recording choice: {str(e)}")
 
 @router.post("/feedback")
-async def record_feedback(feedback: UserFeedback):
+async def record_feedback(feedback: UserFeedback, current_user: dict = Depends(get_current_user)):
     """Record detailed user feedback on a specific response"""
+    user_id = current_user["user_id"]
     try:
-        # Store feedback as metadata in a separate table or update the response
-        # For now, we'll create a simple feedback log
+        # Make sure this response actually belongs to the requesting user before
+        # attaching feedback to it — response_id alone would let anyone graft
+        # feedback onto someone else's history.
+        owner = await execute_query(
+            "SELECT user_id FROM llm_responses WHERE id = ?",
+            (feedback.response_id,)
+        )
+        if not owner or owner[0]["user_id"] != user_id:
+            raise HTTPException(status_code=404, detail="Response not found")
+
         await execute_update(
             """INSERT INTO user_choices
                (user_id, question, chosen_llm, metadata)
@@ -129,12 +140,15 @@ async def record_feedback(feedback: UserFeedback):
 
         return {"success": True, "message": "Feedback recorded"}
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error recording feedback: {str(e)}")
 
-@router.get("/stats/{user_id}")
-async def get_user_stats(user_id: int):
-    """Get overall statistics for a user"""
+@router.get("/stats/me")
+async def get_user_stats(current_user: dict = Depends(get_current_user)):
+    """Get overall statistics for the current user"""
+    user_id = current_user["user_id"]
     try:
         # Get total questions asked
         total_questions = await execute_query(

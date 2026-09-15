@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
+from auth import get_current_user
 from database import execute_query, execute_update, init_database
 from llm_client import generate_flashcards
 from sm2 import schedule
@@ -12,7 +13,6 @@ router = APIRouter()
 
 
 class GenerateFlashcardsRequest(BaseModel):
-    user_id: int
     subject: str
     source_text: str
     count: int = 10
@@ -33,7 +33,7 @@ async def health():
 
 
 @router.post("/generate")
-async def generate(req: GenerateFlashcardsRequest):
+async def generate(req: GenerateFlashcardsRequest, current_user: dict = Depends(get_current_user)):
     try:
         cards = await generate_flashcards(req.subject, req.source_text, req.count)
     except Exception as e:
@@ -45,15 +45,16 @@ async def generate(req: GenerateFlashcardsRequest):
         card_id = await execute_update(
             "INSERT INTO flashcards (user_id, subject, front, back, next_review_at) "
             "VALUES (?, ?, ?, ?, ?)",
-            (req.user_id, req.subject, card["front"], card["back"], now),
+            (current_user["user_id"], req.subject, card["front"], card["back"], now),
         )
         created.append({"id": card_id, "front": card["front"], "back": card["back"]})
 
     return {"flashcards": created}
 
 
-@router.get("/{user_id}")
-async def due_flashcards(user_id: int, subject: str | None = None):
+@router.get("/me")
+async def due_flashcards(subject: str | None = None, current_user: dict = Depends(get_current_user)):
+    user_id = current_user["user_id"]
     now = datetime.now(timezone.utc)
     if subject:
         rows = await execute_query(
@@ -70,12 +71,12 @@ async def due_flashcards(user_id: int, subject: str | None = None):
 
 
 @router.post("/{card_id}/review")
-async def review(card_id: int, req: ReviewRequest):
+async def review(card_id: int, req: ReviewRequest, current_user: dict = Depends(get_current_user)):
     if not 0 <= req.quality <= 5:
         raise HTTPException(status_code=400, detail="quality must be between 0 and 5")
 
     rows = await execute_query("SELECT * FROM flashcards WHERE id = ?", (card_id,))
-    if not rows:
+    if not rows or rows[0]["user_id"] != current_user["user_id"]:
         raise HTTPException(status_code=404, detail="Flashcard not found")
     card = rows[0]
 

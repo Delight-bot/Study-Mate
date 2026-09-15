@@ -3,7 +3,6 @@ import axios from '../api'
 import RoomSidebar from '../components/RoomSidebar'
 
 const LLM_ORDER = ['gpt', 'claude', 'gemini', 'deepseek', 'llama']
-const USER_ID = 1 // Default user for demo
 
 export default function Chat({ activeRoom }) {
   const [question, setQuestion] = useState('')
@@ -37,7 +36,6 @@ export default function Chat({ activeRoom }) {
 
     try {
       const response = await axios.post('/api/chat/ask', {
-        user_id: USER_ID,
         question: question,
         subject: activeRoom,
         use_profiling: true
@@ -64,7 +62,6 @@ export default function Chat({ activeRoom }) {
 
     try {
       await axios.post('/api/score/choose', {
-        user_id: USER_ID,
         question: question,
         chosen_llm: llmName,
         all_response_ids: []
@@ -173,7 +170,7 @@ export default function Chat({ activeRoom }) {
           )}
       </div>
 
-      <RoomSidebar key={`${activeRoom}-${historyVersion}`} userId={USER_ID} room={activeRoom} />
+      <RoomSidebar key={`${activeRoom}-${historyVersion}`} room={activeRoom} />
     </div>
   )
 }

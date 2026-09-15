@@ -11,7 +11,6 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     """Request model for chat endpoint"""
-    user_id: int
     question: str = Field(..., min_length=1)
     subject: Optional[str] = None
     use_profiling: bool = True

@@ -3,9 +3,14 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE,
+    password_hash TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Safety net for the already-deployed table: CREATE TABLE IF NOT EXISTS above
+-- won't add this column to a table that already existed pre-auth.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
 -- Subjects table (Chemistry, Calculus, Programming, etc.)
 CREATE TABLE IF NOT EXISTS subjects (

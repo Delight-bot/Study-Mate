@@ -12,7 +12,6 @@ class UserPreference(BaseModel):
 
 class UserChoice(BaseModel):
     """Model for user's choice of best response"""
-    user_id: int
     question: str
     subject_id: Optional[int] = None
     chosen_llm: str

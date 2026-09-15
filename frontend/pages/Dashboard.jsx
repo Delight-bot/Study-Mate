@@ -27,7 +27,7 @@ export default function Dashboard() {
   const fetchProfile = async () => {
     setAgo(0)
     try {
-      const response = await axios.get('/api/profile/1') // Default user
+      const response = await axios.get('/api/profile/me')
       setProfile(response.data)
     } catch (err) {
       setError(err.response?.data?.detail || 'Error loading profile')

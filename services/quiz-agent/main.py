@@ -1,9 +1,10 @@
 import json
 from typing import List, Optional
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from pydantic import BaseModel
 
+from auth import get_current_user
 from database import execute_query, execute_update, init_database
 from llm_client import generate_quiz_questions
 
@@ -12,7 +13,6 @@ router = APIRouter()
 
 
 class GenerateQuizRequest(BaseModel):
-    user_id: int
     subject: str
     source_text: str
     num_questions: int = 5
@@ -20,7 +20,6 @@ class GenerateQuizRequest(BaseModel):
 
 
 class SubmitQuizRequest(BaseModel):
-    user_id: int
     answers: List[int]
 
 
@@ -35,7 +34,7 @@ async def health():
 
 
 @router.post("/generate")
-async def generate_quiz(req: GenerateQuizRequest):
+async def generate_quiz(req: GenerateQuizRequest, current_user: dict = Depends(get_current_user)):
     try:
         questions = await generate_quiz_questions(
             req.subject, req.source_text, req.num_questions, req.difficulty
@@ -45,7 +44,7 @@ async def generate_quiz(req: GenerateQuizRequest):
 
     quiz_id = await execute_update(
         "INSERT INTO quizzes (user_id, subject, difficulty) VALUES (?, ?, ?)",
-        (req.user_id, req.subject, req.difficulty),
+        (current_user["user_id"], req.subject, req.difficulty),
     )
 
     question_ids = []
@@ -72,6 +71,10 @@ async def generate_quiz(req: GenerateQuizRequest):
 
 @router.get("/{quiz_id}")
 async def get_quiz(quiz_id: int):
+    # Intentionally not auth-gated: a duel opponent loading the same quiz via
+    # its numeric id doesn't need to be its creator (see contest_router, which
+    # is also open by design — duels are code-based, not account-based). No
+    # answers are exposed here regardless.
     quiz_rows = await execute_query(
         "SELECT id, subject, difficulty FROM quizzes WHERE id = ?",
         (quiz_id,),
@@ -99,7 +102,7 @@ async def get_quiz(quiz_id: int):
 
 
 @router.post("/{quiz_id}/submit")
-async def submit_quiz(quiz_id: int, req: SubmitQuizRequest):
+async def submit_quiz(quiz_id: int, req: SubmitQuizRequest, current_user: dict = Depends(get_current_user)):
     rows = await execute_query(
         "SELECT id, correct_index, explanation FROM quiz_questions WHERE quiz_id = ? ORDER BY id",
         (quiz_id,),
@@ -130,18 +133,18 @@ async def submit_quiz(quiz_id: int, req: SubmitQuizRequest):
 
     await execute_update(
         "INSERT INTO quiz_attempts (quiz_id, user_id, score, total, answers) VALUES (?, ?, ?, ?, ?)",
-        (quiz_id, req.user_id, score, len(rows), json.dumps(req.answers)),
+        (quiz_id, current_user["user_id"], score, len(rows), json.dumps(req.answers)),
     )
 
     return {"score": score, "total": len(rows), "feedback": feedback}
 
 
-@router.get("/{user_id}/history")
-async def quiz_history(user_id: int):
+@router.get("/history/me")
+async def quiz_history(current_user: dict = Depends(get_current_user)):
     rows = await execute_query(
         "SELECT id, quiz_id, score, total, created_at FROM quiz_attempts "
         "WHERE user_id = ? ORDER BY created_at DESC",
-        (user_id,),
+        (current_user["user_id"],),
     )
     return [dict(row) for row in rows]
 

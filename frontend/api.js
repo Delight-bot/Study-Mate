@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getSession, clearSession } from './auth'
 
 // In dev, Vite proxies '/api' to the gateway (see vite.config.js), so this
 // stays empty and requests go through the dev server.
@@ -8,4 +9,25 @@ import axios from 'axios'
 //   VITE_API_BASE_URL=https://your-gateway-host.example.com npm run build
 const baseURL = import.meta.env.VITE_API_BASE_URL || ''
 
-export default axios.create({ baseURL })
+const instance = axios.create({ baseURL })
+
+instance.interceptors.request.use((config) => {
+  const session = getSession()
+  if (session?.token) {
+    config.headers.Authorization = `Bearer ${session.token}`
+  }
+  return config
+})
+
+instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      clearSession()
+      window.location.reload()
+    }
+    return Promise.reject(error)
+  }
+)
+
+export default instance

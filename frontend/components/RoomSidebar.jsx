@@ -18,7 +18,7 @@ function timeAgo(iso) {
   return `${Math.floor(hours / 24)}d ago`
 }
 
-export default function RoomSidebar({ userId, room }) {
+export default function RoomSidebar({ room }) {
   const [notes, setNotes] = useState([])
   const [history, setHistory] = useState([])
   const [title, setTitle] = useState('')
@@ -31,18 +31,18 @@ export default function RoomSidebar({ userId, room }) {
   useEffect(() => {
     let cancelled = false
 
-    axios.get(`/api/notes/${userId}`)
+    axios.get('/api/notes/me')
       .then((res) => {
         if (!cancelled) setNotes(res.data.filter((n) => n.subject === room))
       })
       .catch(() => { if (!cancelled) setNotes([]) })
 
-    axios.get(`/api/chat/history/${userId}`, { params: { subject: room, limit: 6 } })
+    axios.get('/api/chat/history', { params: { subject: room, limit: 6 } })
       .then((res) => { if (!cancelled) setHistory(res.data) })
       .catch(() => { if (!cancelled) setHistory([]) })
 
     return () => { cancelled = true }
-  }, [userId, room])
+  }, [room])
 
   const readFile = (file) => {
     setUploadError(null)
@@ -78,7 +78,6 @@ export default function RoomSidebar({ userId, room }) {
     setUploadError(null)
     try {
       const res = await axios.post('/api/notes', {
-        user_id: userId,
         subject: room,
         title: title.trim() || 'Untitled note',
         content: content.trim(),
