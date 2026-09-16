@@ -1,135 +1,176 @@
-# 🤖 LLM Performance Router with Adaptive Prompting and Subject Profiling
+# StudyMate
 
-A comprehensive system that intelligently routes questions to multiple LLMs, tracks user preferences, and builds personalized subject-specific profiles to recommend the best LLM for each domain.
+**Study from your own notes. Duel your friends. Stay focused.**
 
-## 🌟 Key Features
+StudyMate is an AI study platform that turns your class notes into quizzes and flashcards, so you review what your professor actually taught instead of generic material. Challenge a study partner to a duel, run focused Pomodoro sessions, and let StudyMate learn which AI model explains each subject best for you.
 
-### 1. **Adaptive Prompt Rewriting**
-Customizes prompts for each LLM based on:
-- User preferences and style
-- Subject area
-- Question difficulty
-- Historical performance
+**[Live Demo](https://delight-bot.github.io/Study-Mate/)**
 
-### 2. **Automatic Scoring System**
-Evaluates responses on multiple metrics:
-- **Clarity**: Sentence structure, readability
-- **Depth**: Technical detail, thoroughness
-- **Formatting**: Structure, code blocks, lists
-- **Correctness**: Fact-checking and verification
+---
 
-### 3. **Memory-Based Subject Profiling** ⭐ (Featured)
-Learns your preferences per subject:
-- Tracks which LLM you prefer for Chemistry, Calculus, Programming, etc.
-- Builds confidence scores over time
-- Automatically recommends the best LLM for each subject
-- Adapts routing based on your history
+## Features
 
-### 4. **Hallucination Checker**
-Cross-checks responses to detect inconsistencies:
-- Compares answers across all 5 LLMs
-- Flags numerical discrepancies
-- Detects contradicting statements
-- Generates consensus scores
+### Upload Your Notes
+Upload your class notes and StudyMate indexes them for semantic search. Everything it generates, from quizzes to flashcards to duel questions, comes from *your* material.
 
-### 5. **Response Fusion**
-Combines the best parts of multiple responses:
-- Takes GPT's explanation + DeepSeek's code + Gemini's examples
-- Creates superior hybrid answers
-- Provides attribution for each section
+### Quizzes
+Generate multiple-choice quizzes from your notes and get your answers graded instantly.
 
-## 🏗️ Architecture
+### Flashcards with Spaced Repetition
+Generate flashcards from your notes. Reviews are scheduled with the SM-2 spaced-repetition algorithm, so cards you struggle with come back sooner and cards you know well come back later.
 
-```
-/StudeyMate
-├── /backend              # FastAPI backend
-│   ├── /routers         # API endpoints
-│   ├── /services        # LLM integrations
-│   ├── /models          # Data models
-│   ├── /memory          # Subject profiling system ⭐
-│   ├── /evaluation      # Scoring & hallucination detection
-│   ├── /utils           # Helper functions
-│   └── app.py           # Main application
-├── /frontend            # React frontend
-│   ├── /components      # UI components
-│   ├── /pages           # Chat & Dashboard
-│   └── main.jsx         # Entry point
-├── /database            # SQLite database
-│   └── schema.sql       # Database schema
-└── README.md
-```
+### Study Duels
+Challenge a study partner head to head. You can play a duel two ways:
+- **From notes:** upload notes and StudyMate generates the questions for both of you.
+- **Bring your own:** add your own questions and use StudyMate as the dueling platform.
 
-## 🤖 Agentic Microservice Architecture
+### Pomodoro Timer
+A built-in Pomodoro timer keeps sessions focused, with timed work blocks and breaks.
 
-Beyond the monolithic dev setup below, StudeyMate can run as an independently
-deployable set of services behind a gateway — closer to how this would be run
-in production, and a natural fit for Kubernetes:
+### Ask Any Question, Get the Best Answer
+Ask a question and StudyMate sends it to 5 LLMs in parallel, then shows the responses side by side. Pick the one that helped most, and StudyMate learns your preference for that subject.
+
+---
+
+## How the AI Works
+
+### LLM Router with Subject Profiling
+StudyMate learns which model works best for you in each subject, such as Chemistry, Calculus, or Programming.
+
+1. **Classify:** each question is automatically tagged with a subject and difficulty level.
+2. **Compare:** the question goes to all 5 LLMs, each with a prompt adapted to your profile, the subject, and the difficulty.
+3. **Choose:** you pick the most helpful response, and that choice updates your subject profile.
+4. **Route:** as confidence grows, StudyMate recommends your best model for that subject.
+
+| Profile strength | Questions answered | Confidence |
+|---|---|---|
+| Weak | Fewer than 3 | Low |
+| Moderate | 3 to 10 | Building |
+| Strong | More than 10 | High |
+
+Once a subject has 10+ questions and confidence above 85%, StudyMate auto-suggests the best model.
+
+### Automatic Response Scoring
+Every response is scored on four weighted metrics:
+
+| Metric | Weight | What it measures |
+|---|---|---|
+| Depth | 0.30 | Technical detail and thoroughness |
+| Clarity | 0.25 | Sentence structure and readability |
+| Correctness | 0.25 | Fact-checking and verification |
+| Formatting | 0.20 | Structure, code blocks, and lists |
+
+### Hallucination Checker
+StudyMate cross-checks answers across all 5 models, flags numerical discrepancies and contradicting statements, and produces a consensus score.
+
+### Response Fusion
+StudyMate can combine the strongest parts of several responses, for example one model's explanation with another's code and a third's examples, and attributes each section to its source model.
+
+### Supported Models
+| Provider | Default model |
+|---|---|
+| OpenAI | `gpt-4` |
+| Anthropic | `claude-3-5-sonnet-20241022` |
+| Google | `gemini-pro` |
+| DeepSeek | `deepseek-chat` |
+| Together AI (Llama) | `meta-llama/Llama-2-70b-chat-hf` |
+
+Models are configured in `backend/services/`.
+
+---
+
+## Architecture
+
+StudyMate runs as independently deployable agent services behind a FastAPI gateway.
 
 ```text
                     User
-                      │
-                      ▼
+                      |
+                      v
               React Frontend (nginx)
-                      │
-                      ▼
+                      |
+                      v
                FastAPI Gateway
-                      │
-     ┌──────────┬──────────┬──────────┐
-     ▼          ▼          ▼          ▼
+                      |
+     +----------+-----+-----+----------+
+     v          v           v          v
  Quiz Agent  Flashcard  Notes Agent  LLM Router
               Agent
-     │          │          │
-     └──────────┴──────────┘
-              Qdrant (vector DB)
+     |          |           |
+     +----------+-----------+
+          Qdrant (vector DB)
 ```
 
-Five independently deployable services, each with its own Dockerfile:
+| Service | Path | Responsibility |
+|---|---|---|
+| Gateway | `gateway/` | Reverse proxy that routes `/api/*` requests to the right service |
+| LLM Router Agent | `backend/` | Chat, scoring, subject profiles, and model routing |
+| Quiz Agent | `services/quiz-agent/` | Generates quizzes from source text and grades answers |
+| Flashcard Agent | `services/flashcard-agent/` | Generates flashcards and schedules SM-2 reviews |
+| Notes Agent | `services/notes-agent/` | Stores notes and indexes them in Qdrant for semantic search |
+| Qdrant | | Vector database behind note search |
 
-- **Gateway Agent** (`gateway/`) — FastAPI reverse proxy that routes `/api/*`
-  requests to the right upstream service.
-- **LLM Router Agent** (`backend/`) — the existing chat/score/profile/llm
-  routing system described above, unchanged, running as its own service.
-- **Quiz Agent** (`services/quiz-agent/`) — generates multi-choice quizzes from
-  source text via an LLM and grades submitted answers.
-- **Flashcard Agent** (`services/flashcard-agent/`) — generates flashcards via
-  an LLM and schedules reviews with the SM-2 spaced-repetition algorithm.
-- **Notes Agent** (`services/notes-agent/`) — stores notes and indexes them in
-  Qdrant for semantic search over embeddings.
-- **Qdrant** — vector database backing the Notes Agent's semantic search.
+Each backend agent has its own Dockerfile and its own Postgres database (one shared instance, one database per service), backed by a PersistentVolumeClaim in Kubernetes and a named volume in Docker Compose, so data survives restarts.
 
-Each of the 4 backend agents persists to its own Postgres database and can be
-scaled independently — e.g. if quiz generation gets popular, Kubernetes can
-scale just the Quiz Agent from 1 to 5 replicas without touching the others.
+Because the agents are separate, each one scales on its own. If quiz generation gets busy, Kubernetes scales only the Quiz Agent. Deployments include health probes that restart failed agents and a HorizontalPodAutoscaler for the Quiz Agent.
 
-**Resume-friendly summary of this work:**
-- Designed an agentic AI architecture with independent quiz, flashcard, and
-  notes agent services behind a FastAPI gateway, enabling modular development
-  and independent scaling.
-- Containerized the React frontend, FastAPI gateway, and AI agent services
-  with Docker, then orchestrated deployments using Kubernetes for
-  fault-tolerant, scalable application management.
-- Configured Kubernetes Deployments, Services, health probes, and a
-  HorizontalPodAutoscaler to automatically restart failed agents and scale
-  the Quiz Agent under load with minimal service disruption.
+### Project Structure
 
-### Run locally with Docker Compose
+```text
+StudyMate/
+├── backend/            # LLM Router Agent (FastAPI)
+│   ├── routers/        # API endpoints
+│   ├── services/       # LLM integrations
+│   ├── models/         # Data models
+│   ├── memory/         # Subject profiling
+│   ├── evaluation/     # Scoring and hallucination detection
+│   ├── utils/          # Helpers
+│   └── app.py          # Entry point
+├── gateway/            # FastAPI gateway
+├── services/
+│   ├── quiz-agent/
+│   ├── flashcard-agent/
+│   └── notes-agent/
+├── frontend/           # React app
+│   ├── components/
+│   ├── pages/          # Chat and dashboard
+│   └── main.jsx
+├── database/
+│   └── schema.sql
+└── k8s/                # Kubernetes manifests
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Python 3.9+
+- Node.js 18+
+- Docker (for Compose or Kubernetes)
+- API keys for OpenAI, Anthropic, and Google Gemini (DeepSeek and Together AI are optional)
+
+### Option 1: Docker Compose
 
 ```bash
 docker compose build
 docker compose up -d
-# frontend:  http://localhost:3001
-# gateway:   http://localhost:8080
-# qdrant:    http://localhost:6333
-docker compose down
 ```
 
-### Deploy to Kubernetes
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3001 |
+| Gateway | http://localhost:8080 |
+| Qdrant | http://localhost:6333 |
 
-Requires a local cluster (e.g. enable Kubernetes in Docker Desktop: Settings →
-Kubernetes → Enable Kubernetes).
+Stop everything with `docker compose down`.
+
+### Option 2: Kubernetes
+
+Requires a local cluster, for example Docker Desktop with Kubernetes enabled (Settings > Kubernetes > Enable Kubernetes).
 
 ```bash
-# Build images so the cluster's local image cache can see them
+# Build images so the cluster can see them
 docker build -t studeymate/llm-router:local -f backend/Dockerfile .
 docker build -t studeymate/gateway:local ./gateway
 docker build -t studeymate/quiz-agent:local ./services/quiz-agent
@@ -137,204 +178,116 @@ docker build -t studeymate/flashcard-agent:local ./services/flashcard-agent
 docker build -t studeymate/notes-agent:local ./services/notes-agent
 docker build -t studeymate/frontend:local ./frontend
 
-# Create the real secret from the template (never commit the result)
+# Create your secret from the template (never commit the result)
 cp k8s/secret.example.yaml k8s/secret.yaml
-# edit k8s/secret.yaml with your real API keys
+# Add your API keys to k8s/secret.yaml
 
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/
 kubectl get pods -n studeymate -w
-
-# Demonstrate independent scaling of just the Quiz Agent
-kubectl scale deployment/quiz-agent --replicas=5 -n studeymate
-kubectl get pods -n studeymate
 ```
 
-All four services (llm-router, quiz-agent, flashcard-agent, notes-agent) persist to
-Postgres — one shared instance, one database per service (`llm_router`, `quiz_agent`,
-`flashcard_agent`, `notes_agent`), backed by a real PersistentVolumeClaim in Kubernetes
-(and a named volume in Compose) — so data survives pod/container restarts, same as Qdrant.
+Scale just the Quiz Agent:
 
-## 🚀 Getting Started
+```bash
+kubectl scale deployment/quiz-agent --replicas=5 -n studeymate
+```
 
-### Prerequisites
-- Python 3.9+
-- Node.js 18+
-- API Keys for:
-  - OpenAI (GPT)
-  - Anthropic (Claude)
-  - Google (Gemini)
-  - DeepSeek (optional)
-  - Llama via Together AI (optional)
+### Option 3: Local Development
 
-### Backend Setup
-
-1. **Install Python dependencies**:
+**Backend**
 ```bash
 cd backend
 pip install -r requirements.txt
+cp .env.example .env    # add your API keys
+python app.py           # http://localhost:8000
 ```
 
-2. **Configure environment variables**:
-```bash
-cp .env.example .env
-# Edit .env and add your API keys
-```
-
-3. **Run the backend**:
-```bash
-python app.py
-```
-
-The API will be available at `http://localhost:8000`
-
-### Frontend Setup
-
-1. **Install Node dependencies**:
+**Frontend**
 ```bash
 cd frontend
 npm install
+npm run dev             # http://localhost:3000
 ```
 
-2. **Run the development server**:
-```bash
-npm run dev
-```
+---
 
-The frontend will be available at `http://localhost:3000`
+## API Reference
 
-## 📊 How It Works
+### Chat
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/chat/ask` | Send a question to all LLMs |
+| GET | `/api/chat/history/{user_id}` | Get chat history |
 
-### 1. Ask a Question
-- Type your question in the chat interface
-- The system classifies the subject automatically
-- Question difficulty is analyzed
+### Scoring
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/score/choose` | Record the user's chosen response |
+| POST | `/api/score/feedback` | Submit detailed feedback |
+| GET | `/api/score/stats/{user_id}` | Get user statistics |
 
-### 2. Get All Responses
-- Your question is sent to all 5 LLMs in parallel
-- Each LLM gets an optimized prompt based on your profile
-- Responses are scored automatically
+### Profiles
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/profile/{user_id}` | Get the full user profile |
+| GET | `/api/profile/{user_id}/subject/{subject}` | Get a subject-specific profile |
+| GET | `/api/profile/{user_id}/recommendations` | Get model recommendations |
 
-### 3. Select Your Favorite
-- Review all 5 responses side-by-side
-- Click on the one you find most helpful
-- Your choice is recorded
+### LLMs
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/llm/query/{llm_name}` | Query a single model |
+| GET | `/api/llm/available` | List available models |
+| GET | `/api/llm/models` | Get model details |
 
-### 4. Build Your Profile
-- Over time, the system learns which LLM you prefer for each subject
-- Future questions will prioritize your preferred LLMs
-- Confidence scores increase with more data
+---
 
-### 5. View Your Dashboard
-- See your performance statistics
-- Track which LLM is best for each subject
-- Visualize win rates and confidence levels
+## Database
 
-## 🎯 API Endpoints
+| Table | Purpose |
+|---|---|
+| `users` | User accounts |
+| `subjects` | Subject areas |
+| `llm_responses` | All model responses |
+| `user_choices` | Responses users picked as best |
+| `profiles` | Per-subject performance profiles |
+| `difficulty_scores` | Question difficulty analysis |
+| `hallucination_logs` | Detected inconsistencies |
+| `evaluation_scores` | Automatic quality scores |
 
-### Chat Endpoints
-- `POST /api/chat/ask` - Send a question to all LLMs
-- `GET /api/chat/history/{user_id}` - Get chat history
+---
 
-### Scoring Endpoints
-- `POST /api/score/choose` - Record user's LLM choice
-- `POST /api/score/feedback` - Submit detailed feedback
-- `GET /api/score/stats/{user_id}` - Get user statistics
+## Tech Stack
 
-### Profile Endpoints
-- `GET /api/profile/{user_id}` - Get complete user profile
-- `GET /api/profile/{user_id}/subject/{subject}` - Get subject-specific profile
-- `GET /api/profile/{user_id}/recommendations` - Get LLM recommendations
+**Frontend:** React, nginx
+**Backend:** FastAPI, Python
+**AI:** OpenAI, Anthropic, Google Gemini, DeepSeek, Llama (Together AI), RAG
+**Data:** PostgreSQL, Qdrant
+**Infrastructure:** Docker, Docker Compose, Kubernetes
 
-### LLM Endpoints
-- `POST /api/llm/query/{llm_name}` - Query a single LLM
-- `GET /api/llm/available` - Check which LLMs are available
-- `GET /api/llm/models` - Get model information
+---
 
-## 💾 Database Schema
+## Roadmap
 
-### Key Tables
-- **users**: User accounts
-- **subjects**: Subject areas (Chemistry, Calculus, etc.)
-- **llm_responses**: All LLM responses
-- **user_choices**: User's selected best responses
-- **profiles**: Subject-specific performance profiles ⭐
-- **difficulty_scores**: Question difficulty analysis
-- **hallucination_logs**: Detected inconsistencies
-- **evaluation_scores**: Automatic quality scores
+- Collaborative filtering that learns from all users
+- PDF export for study reports
+- More models (Mistral, Cohere)
+- Voice input and output
+- A/B testing for prompt optimization
+- Real-time fact-checking with external APIs
+- Mobile app (React Native)
 
-## 🔧 Configuration
+---
 
-### LLM Models
-Default models can be configured in `/backend/services/`:
-- **GPT**: `gpt-4`
-- **Claude**: `claude-3-5-sonnet-20241022`
-- **Gemini**: `gemini-pro`
-- **DeepSeek**: `deepseek-chat`
-- **Llama**: `meta-llama/Llama-2-70b-chat-hf`
+## License
 
-### Evaluation Weights
-Scoring weights in `/backend/evaluation/scorer.py`:
-```python
-weights = {
-    'clarity': 0.25,
-    'depth': 0.30,
-    'formatting': 0.20,
-    'correctness': 0.25
-}
-```
+MIT License
 
-## 📈 Subject Profiling Details
+## Contact
 
-The Memory-Based Subject Profiling system is the core innovation:
-
-### How It Learns
-1. **Classification**: Questions are automatically classified into subjects
-2. **Tracking**: Every user choice updates the subject profile
-3. **Confidence**: Confidence grows with more interactions
-4. **Routing**: Best LLM is recommended based on win rate
-
-### Profile Strength Levels
-- **Weak**: < 3 questions (low confidence)
-- **Moderate**: 3-10 questions (building confidence)
-- **Strong**: 10+ questions (high confidence)
-
-### Auto-Selection Threshold
-- Confidence > 85% + 10+ questions = Auto-suggest best LLM
-
-## 🎓 Perfect for Interviews!
-
-This project demonstrates:
-- ✅ Full-stack development (FastAPI + React)
-- ✅ Database design and ORM
-- ✅ API integration (multiple LLM providers)
-- ✅ Machine learning concepts (profiling, scoring)
-- ✅ User behavior analysis
-- ✅ Real-time data processing
-- ✅ Clean architecture and separation of concerns
-- ✅ Scalable design patterns
-
-## 🔮 Future Enhancements
-
-- [ ] Add authentication and multi-user support
-- [ ] Implement collaborative filtering (learn from all users)
-- [ ] Add export functionality (PDF reports)
-- [ ] Integrate more LLMs (Mistral, Cohere, etc.)
-- [ ] Add voice input/output
-- [ ] Implement A/B testing for prompt optimization
-- [ ] Add real-time fact-checking with external APIs
-- [ ] Mobile app (React Native)
-
-## 📝 License
-
-MIT License - feel free to use this project for learning and interviews!
-
-## 🤝 Contributing
-
-This is a portfolio/interview project, but suggestions are welcome!
-
-## 📧 Contact
-
+**Delight Nyanhete**
+[LinkedIn](https://www.linkedin.com/in/delight-nyanhete) | [GitHub](https://github.com/Delight-bot) | [Portfolio](https://delight-bot.github.io/Current_Portfolio/)
 Built with ❤️ for demonstrating full-stack AI system development
 
 ---
