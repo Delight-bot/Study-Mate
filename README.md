@@ -288,8 +288,5 @@ MIT License
 
 **Delight Nyanhete**
 [LinkedIn](https://www.linkedin.com/in/delight-nyanhete) | [GitHub](https://github.com/Delight-bot) | [Portfolio](https://delight-bot.github.io/Current_Portfolio/)
-Built with ❤️ for demonstrating full-stack AI system development
 
 ---
-
-**Star this repo if you find it useful for learning!** ⭐
