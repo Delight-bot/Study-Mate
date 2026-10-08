@@ -69,9 +69,9 @@ StudyMate can combine the strongest parts of several responses, for example one 
 ### Supported Models
 | Provider | Default model |
 |---|---|
-| OpenAI | `gpt-4` |
+| OpenAI | `gpt-4o-mini` |
 | Anthropic | `claude-3-5-sonnet-20241022` |
-| Google | `gemini-pro` |
+| Google | `gemini-3.6-flash` |
 | DeepSeek | `deepseek-chat` |
 | Together AI (Llama) | `meta-llama/Llama-2-70b-chat-hf` |
 
@@ -81,38 +81,135 @@ Models are configured in `backend/services/`.
 
 ## Architecture
 
-StudyMate runs as independently deployable agent services behind a FastAPI gateway.
+StudyMate runs as a set of independently deployable FastAPI services behind a
+single gateway. The same containers run locally (Docker Compose), on Kubernetes,
+and in the live demo (Render + GitHub Pages).
 
-```text
-                    User
-                      |
-                      v
-              React Frontend (nginx)
-                      |
-                      v
-               FastAPI Gateway
-                      |
-     +----------+-----+-----+----------+
-     v          v           v          v
- Quiz Agent  Flashcard  Notes Agent  LLM Router
-              Agent
-     |          |           |
-     +----------+-----------+
-          Qdrant (vector DB)
+### System overview
+
+```mermaid
+flowchart TB
+    user(["Student (browser)"])
+
+    subgraph client["Client"]
+        spa["React SPA<br/>GitHub Pages · nginx container"]
+    end
+
+    subgraph services["Application tier · FastAPI, stateless containers"]
+        gw["API Gateway<br/>single public entry point<br/>routes by /api/{segment}"]
+        router["LLM Router<br/>auth · chat · score · profile · contest<br/>LangGraph /ask pipeline"]
+        quiz["Quiz Agent<br/>generate + grade MCQs<br/>OpenAI gpt-4o-mini"]
+        flash["Flashcard Agent<br/>SM-2 spaced repetition<br/>OpenAI gpt-4o-mini"]
+        notes["Notes Agent<br/>chunk · embed · semantic search<br/>OpenAI embeddings"]
+    end
+
+    subgraph data["Data tier"]
+        pg[("PostgreSQL<br/>database per service")]
+        qd[("Qdrant<br/>vector index")]
+    end
+
+    providers["External LLM providers<br/>OpenAI · Anthropic · Google Gemini<br/>DeepSeek · Together AI (Llama)<br/>called in parallel, 30 s timeout each"]
+
+    user -->|HTTPS| spa
+    spa -->|"REST + JWT bearer"| gw
+    gw -->|"/api/auth, chat, llm,<br/>score, profile, contest"| router
+    gw -->|/api/quiz| quiz
+    gw -->|/api/flashcards| flash
+    gw -->|/api/notes| notes
+
+    router --> pg
+    quiz --> pg
+    flash --> pg
+    notes --> pg
+    notes --> qd
+
+    router --> providers
 ```
 
-| Service | Path | Responsibility |
-|---|---|---|
-| Gateway | `gateway/` | Reverse proxy that routes `/api/*` requests to the right service |
-| LLM Router Agent | `backend/` | Chat, scoring, subject profiles, and model routing |
-| Quiz Agent | `services/quiz-agent/` | Generates quizzes from source text and grades answers |
-| Flashcard Agent | `services/flashcard-agent/` | Generates flashcards and schedules SM-2 reviews |
-| Notes Agent | `services/notes-agent/` | Stores notes and indexes them in Qdrant for semantic search |
-| Qdrant | | Vector database behind note search |
+| Service | Path prefix | Responsibility | State |
+|---|---|---|---|
+| **Gateway** (`gateway/`) | `/api/*` | Reverse proxy, CORS, routes on the first path segment | none |
+| **LLM Router** (`backend/`) | `/api/auth`, `chat`, `llm`, `score`, `profile`, `contest` | Accounts and JWT issuing; multi-LLM Q&A pipeline; scoring and per-subject profiles; study duels | Postgres |
+| **Quiz Agent** (`services/quiz-agent/`) | `/api/quiz` | Generates multiple-choice quizzes from notes and grades submissions | Postgres |
+| **Flashcard Agent** (`services/flashcard-agent/`) | `/api/flashcards` | Generates cards and schedules reviews with SM-2 | Postgres |
+| **Notes Agent** (`services/notes-agent/`) | `/api/notes` | Stores notes, embeds chunks, semantic search | Postgres + Qdrant |
 
-Each backend agent has its own Dockerfile and its own Postgres database (one shared instance, one database per service), backed by a PersistentVolumeClaim in Kubernetes and a named volume in Docker Compose, so data survives restarts.
+### Multi-LLM answer pipeline (LangGraph)
 
-Because the agents are separate, each one scales on its own. If quiz generation gets busy, Kubernetes scales only the Quiz Agent. Deployments include health probes that restart failed agents and a HorizontalPodAutoscaler for the Quiz Agent.
+`POST /api/chat/ask` is a LangGraph `StateGraph` (`backend/graph/ask_graph.py`).
+Each step is a node, and the per-model calls fan out in parallel with `Send`.
+
+```mermaid
+flowchart LR
+    start((start)) --> prepare["prepare<br/>detect subject + difficulty<br/>build per-model prompts<br/>fan out with Send"]
+    prepare --> gpt["call_llm<br/>GPT"] & claude["call_llm<br/>Claude"] & gem["call_llm<br/>Gemini"] & ds["call_llm<br/>DeepSeek"] & ll["call_llm<br/>Llama"]
+    gpt & claude & gem & ds & ll --> persist["persist<br/>store answers"]
+    persist --> evaluate["evaluate<br/>score answers<br/>cross-check consistency"]
+    evaluate -->|"2+ answers"| fuse["fuse<br/>combine best sections"]
+    evaluate -->|"fewer than 2"| finish((end))
+    fuse --> finish
+```
+
+A slow or failing provider becomes an error entry for that model. It never
+fails the whole request, so the student still gets every answer that came back.
+
+### Authentication flow
+
+```mermaid
+sequenceDiagram
+    participant B as Browser (SPA)
+    participant G as Gateway
+    participant R as LLM Router
+    participant Q as Quiz Agent
+
+    B->>G: POST /api/auth/login
+    G->>R: forward
+    R-->>B: JWT (HS256, contains user_id)
+    B->>G: POST /api/quiz/generate<br/>Authorization: Bearer <jwt>
+    G->>Q: forward headers unchanged
+    Q->>Q: verify JWT locally,<br/>scope every query to user_id
+    Q-->>B: quiz
+```
+
+### Deployment targets
+
+| | Local · Docker Compose | Kubernetes (`k8s/`) | Hosted demo · Render + GitHub Pages |
+|---|---|---|---|
+| **Frontend** | nginx container | Deployment + Service | GitHub Pages, built by GitHub Actions |
+| **Services** | One container each | Deployments with readiness/liveness probes; HPA scales Quiz Agent 1 → 5 | Render Docker web services, defined in the `render.yaml` Blueprint |
+| **PostgreSQL** | `postgres:16`, 4 databases, named volume | StatefulSet + PersistentVolumeClaim | Render managed Postgres (one shared database on the free tier) |
+| **Qdrant** | Container + volume | StatefulSet + volume | Render image service |
+| **Service discovery** | Compose DNS | Kubernetes Service DNS | Public service URLs |
+| **Secrets** | `backend/.env` | `Secret` (gitignored) | Render env group (`JWT_SECRET`) + per-service keys |
+
+### Design decisions and trade-offs
+
+- **One public entry point.** The frontend only knows the gateway's URL, so
+  services can move, split or scale without client changes. Routing is a
+  lookup on the first path segment, so adding a service is a one-line change.
+- **Every service verifies the token itself.** Services don't trust the
+  gateway. Each one checks the JWT and filters every query by the `user_id`
+  inside it, so one user's data can't leak to another even if the gateway
+  were bypassed.
+- **Database per service.** Each service owns its schema, with no
+  cross-service joins, so services deploy and migrate independently. On
+  Render's free tier these share one physical database, a cost trade-off
+  the code doesn't depend on.
+- **Partial failure over total failure.** Every provider call has its own
+  timeout and error handling, so one slow or broken provider never blocks the
+  answers from the others.
+- **Stateless compute, scale where the load is.** All state lives in
+  Postgres/Qdrant, so any service can run more replicas. LLM-heavy quiz
+  generation scales on its own through a HorizontalPodAutoscaler.
+- **The pipeline is an explicit graph.** Modelling `/ask` in LangGraph makes
+  each step, the parallel fan-out and the conditional fusion visible and
+  testable. New steps, such as profile-based model routing, plug in as nodes.
+
+**Known limitations / next steps:** free-tier services sleep, so the first
+request is slow; services talk over public URLs because the free tier lacks
+private networking; the shared HS256 secret would move to asymmetric keys
+(RS256 + JWKS) so only the router can sign tokens; the gateway would add rate
+limiting and per-request tracing (OpenTelemetry).
 
 ### Project Structure
 
@@ -124,6 +221,7 @@ StudyMate/
 │   ├── models/         # Data models
 │   ├── memory/         # Subject profiling
 │   ├── evaluation/     # Scoring and hallucination detection
+│   ├── graph/          # LangGraph pipeline behind /api/chat/ask
 │   ├── utils/          # Helpers
 │   └── app.py          # Entry point
 ├── gateway/            # FastAPI gateway
@@ -214,25 +312,36 @@ npm run dev             # http://localhost:3000
 
 ## API Reference
 
+Every endpoint except register and login requires an `Authorization: Bearer <jwt>`
+header. The user always comes from the token, never from the URL.
+
+### Auth
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/register` | Create an account |
+| POST | `/api/auth/login` | Get a JWT |
+| GET | `/api/auth/me` | Get the current user |
+
 ### Chat
 | Method | Endpoint | Description |
 |---|---|---|
-| POST | `/api/chat/ask` | Send a question to all LLMs |
-| GET | `/api/chat/history/{user_id}` | Get chat history |
+| POST | `/api/chat/ask` | Ask all LLMs, then score, cross-check and fuse the answers |
+| GET | `/api/chat/history` | Get your chat history (optional `?subject=`) |
+| GET | `/api/chat/subjects` | List subjects |
 
 ### Scoring
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/api/score/choose` | Record the user's chosen response |
 | POST | `/api/score/feedback` | Submit detailed feedback |
-| GET | `/api/score/stats/{user_id}` | Get user statistics |
+| GET | `/api/score/stats/me` | Get your statistics |
 
 ### Profiles
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/profile/{user_id}` | Get the full user profile |
-| GET | `/api/profile/{user_id}/subject/{subject}` | Get a subject-specific profile |
-| GET | `/api/profile/{user_id}/recommendations` | Get model recommendations |
+| GET | `/api/profile/me` | Get your full profile |
+| GET | `/api/profile/me/subject/{subject}` | Get a subject-specific profile |
+| GET | `/api/profile/me/recommendations` | Get model recommendations |
 
 ### LLMs
 | Method | Endpoint | Description |
@@ -240,6 +349,18 @@ npm run dev             # http://localhost:3000
 | POST | `/api/llm/query/{llm_name}` | Query a single model |
 | GET | `/api/llm/available` | List available models |
 | GET | `/api/llm/models` | Get model details |
+
+### Study Duels
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/contest/create` | Start a duel and get a join code |
+| POST | `/api/contest/{code}/join` | Join a duel |
+| POST | `/api/contest/{code}/progress` | Report study progress |
+| POST | `/api/contest/{code}/quiz-result` | Submit a quiz score |
+| GET | `/api/contest/{code}` | Get the duel state |
+
+The quiz, flashcard and notes agents serve their own routes under `/api/quiz`,
+`/api/flashcards` and `/api/notes` (see each service's `main.py`).
 
 ---
 
@@ -262,7 +383,7 @@ npm run dev             # http://localhost:3000
 
 **Frontend:** React, nginx
 **Backend:** FastAPI, Python
-**AI:** OpenAI, Anthropic, Google Gemini, DeepSeek, Llama (Together AI), RAG
+**AI:** LangGraph, OpenAI, Anthropic, Google Gemini, DeepSeek, Llama (Together AI), RAG
 **Data:** PostgreSQL, Qdrant
 **Infrastructure:** Docker, Docker Compose, Kubernetes
 

@@ -3,7 +3,7 @@ Profile Builder - Builds and updates user subject performance profiles
 Part of Feature #3: Memory-Based Subject Profiling (YOUR FAVORITE!)
 """
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 from models import SubjectProfile
 
 class ProfileBuilder:

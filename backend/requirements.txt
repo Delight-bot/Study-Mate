@@ -10,3 +10,4 @@ asyncpg>=0.29.0
 httpx>=0.25.0
 bcrypt>=4.0.0
 pyjwt>=2.8.0
+langgraph>=1.0.0

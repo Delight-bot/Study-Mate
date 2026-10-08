@@ -3,7 +3,7 @@ Feature #5: Response Fusion Engine
 Combines the best parts of multiple LLM responses into a superior answer
 """
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import re
 
 class ResponseFusionEngine:

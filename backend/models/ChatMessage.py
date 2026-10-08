@@ -21,4 +21,8 @@ class ChatResponse(BaseModel):
     question: str
     responses: list[dict]  # List of LLM responses
     subject: Optional[str] = None
+    detected_subject: Optional[str] = None  # set when no room subject was given
+    difficulty: Optional[str] = None  # easy | medium | hard
+    evaluation: Optional[dict] = None  # scores, ranking, cross-model consistency
+    fused: Optional[dict] = None  # best-sections answer stitched from 2+ LLMs
     timestamp: datetime = Field(default_factory=datetime.now)
