@@ -17,10 +17,13 @@ class ClaudeService(BaseLLMService):
     async def generate_response(self, prompt: str, **kwargs) -> Dict[str, Any]:
         """Generate response using Anthropic Claude API"""
         try:
+            # anthropic>=2.0 dropped `temperature` from messages.create()
+            # entirely (replaced by speed/thinking/service_tier) — self.temperature
+            # is kept on the instance for BaseLLMService's uniform constructor,
+            # just not forwarded to this call anymore.
             response = await self.client.messages.create(
                 model=self.model,
                 max_tokens=self.max_tokens,
-                temperature=self.temperature,
                 messages=[
                     {"role": "user", "content": prompt}
                 ]
