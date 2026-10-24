@@ -1,6 +1,8 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException
 from auth import get_current_user
-from models import ChatRequest, ChatResponse, LLMResponse
+from models import ChatRequest, ChatResponse, LLMResponse, WalkthroughRequest
 from services import (
     OpenAIService,
     ClaudeService,
@@ -10,6 +12,7 @@ from services import (
 )
 from database import execute_query
 from graph import build_ask_graph
+from graph.ask_graph import LLM_TIMEOUT_SECONDS
 import os
 
 router = APIRouter()
@@ -56,6 +59,7 @@ async def ask_question(request: ChatRequest, current_user: dict = Depends(get_cu
             "user_id": current_user["user_id"],
             "question": request.question,
             "subject": request.subject,
+            "context": request.context,
         })
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
@@ -114,3 +118,41 @@ async def list_subjects():
         return [dict(row) for row in results]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching subjects: {str(e)}")
+
+
+def _walkthrough_prompt(question: str, previous_answer: str, subject: str | None) -> str:
+    parts = []
+    if subject:
+        parts.append(f"Subject: {subject}")
+    parts.append(f"Original question: {question}")
+    parts.append(f'Your previous answer:\n"""\n{previous_answer}\n"""')
+    parts.append(
+        "The student picked this answer as the most helpful one. Break it down into "
+        "a clear, numbered, step-by-step walkthrough they can follow along with — one "
+        "concrete step per number, in the order they should work through it. Keep each "
+        "step focused and concise."
+    )
+    return "\n\n".join(parts)
+
+
+@router.post("/walkthrough")
+async def walkthrough(request: WalkthroughRequest, current_user: dict = Depends(get_current_user)):
+    """Re-ask the chosen LLM to break its own answer into numbered steps."""
+    service = llm_services.get(request.llm_name)
+    if not service:
+        raise HTTPException(status_code=400, detail=f"'{request.llm_name}' isn't a configured LLM")
+
+    prompt = _walkthrough_prompt(request.question, request.previous_answer, request.subject)
+    try:
+        result = await asyncio.wait_for(service.timed_generate(prompt), timeout=LLM_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail=f"{request.llm_name} timed out after {LLM_TIMEOUT_SECONDS}s")
+
+    if result.get("error"):
+        raise HTTPException(status_code=502, detail=result.get("response_text", "Walkthrough generation failed"))
+
+    return {
+        "llm_name": request.llm_name,
+        "steps_text": result.get("response_text", ""),
+        "response_time": result.get("response_time", 0),
+    }

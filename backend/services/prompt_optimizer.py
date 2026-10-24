@@ -38,7 +38,8 @@ class PromptOptimizer:
         user_preference: Optional[UserPreference] = None,
         subject: Optional[str] = None,
         difficulty: Optional[str] = None,
-        profile: Optional[SubjectProfile] = None
+        profile: Optional[SubjectProfile] = None,
+        context: Optional[str] = None
     ) -> str:
         """
         Optimize the prompt based on various factors
@@ -50,6 +51,7 @@ class PromptOptimizer:
             subject: Subject area (Chemistry, Calculus, etc.)
             difficulty: Question difficulty (easy, medium, hard)
             profile: User's subject-specific profile
+            context: The room's saved notes, included as grounding material
 
         Returns:
             Optimized prompt string
@@ -65,6 +67,15 @@ class PromptOptimizer:
         # Add subject context
         if subject:
             components.append(f"Subject: {subject}")
+
+        # Ground the answer in the user's own notes when available, without
+        # forcing it — the question should still work fine with no notes.
+        if context:
+            components.append(
+                f"The student has these notes saved for this subject. Use them as "
+                f"context where relevant, but don't force a connection if they "
+                f"aren't related to the question:\n\"\"\"\n{context}\n\"\"\""
+            )
 
         # Add difficulty-based instructions
         if difficulty:

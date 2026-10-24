@@ -4,6 +4,7 @@ import RoomSidebar from '../components/RoomSidebar'
 import MarkdownAnswer from '../components/MarkdownAnswer'
 
 const LLM_ORDER = ['gpt', 'claude', 'gemini', 'deepseek', 'llama']
+const MAX_CONTEXT_CHARS = 6000
 
 export default function Chat({ activeRoom }) {
   const [question, setQuestion] = useState('')
@@ -14,6 +15,10 @@ export default function Chat({ activeRoom }) {
   const [elapsed, setElapsed] = useState(0)
   const [askedAt, setAskedAt] = useState(null)
   const [historyVersion, setHistoryVersion] = useState(0)
+  const [roomNotes, setRoomNotes] = useState([])
+  const [walkthrough, setWalkthrough] = useState(null)
+  const [walkthroughLoading, setWalkthroughLoading] = useState(false)
+  const [walkthroughError, setWalkthroughError] = useState(null)
   const elapsedTimer = useRef(null)
 
   useEffect(() => {
@@ -26,6 +31,16 @@ export default function Chat({ activeRoom }) {
     return () => clearInterval(elapsedTimer.current)
   }, [loading])
 
+  useEffect(() => {
+    let cancelled = false
+    axios.get('/api/notes/me')
+      .then((res) => {
+        if (!cancelled) setRoomNotes(res.data.filter((n) => n.subject === activeRoom))
+      })
+      .catch(() => { if (!cancelled) setRoomNotes([]) })
+    return () => { cancelled = true }
+  }, [activeRoom])
+
   const handleAsk = async () => {
     if (!question.trim()) return
 
@@ -33,12 +48,19 @@ export default function Chat({ activeRoom }) {
     setError(null)
     setResponses([])
     setSelectedLLM(null)
+    setWalkthrough(null)
+    setWalkthroughError(null)
     setAskedAt(new Date())
+
+    const context = roomNotes.length > 0
+      ? roomNotes.map((n) => n.content).join('\n\n').slice(0, MAX_CONTEXT_CHARS)
+      : undefined
 
     try {
       const response = await axios.post('/api/chat/ask', {
         question: question,
         subject: activeRoom,
+        context,
         use_profiling: true
       })
 
@@ -60,6 +82,8 @@ export default function Chat({ activeRoom }) {
 
   const handleSelectResponse = async (llmName) => {
     setSelectedLLM(llmName)
+    setWalkthrough(null)
+    setWalkthroughError(null)
 
     try {
       await axios.post('/api/score/choose', {
@@ -69,6 +93,24 @@ export default function Chat({ activeRoom }) {
       })
     } catch (err) {
       console.error('Error recording choice:', err)
+    }
+
+    const chosen = responses.find((r) => r.llm_name === llmName)
+    if (!chosen || chosen.error) return
+
+    setWalkthroughLoading(true)
+    try {
+      const res = await axios.post('/api/chat/walkthrough', {
+        llm_name: llmName,
+        question: question,
+        previous_answer: chosen.response_text,
+        subject: activeRoom,
+      })
+      setWalkthrough(res.data)
+    } catch (err) {
+      setWalkthroughError(err.response?.data?.detail || 'Could not generate a walkthrough.')
+    } finally {
+      setWalkthroughLoading(false)
     }
   }
 
@@ -94,6 +136,7 @@ export default function Chat({ activeRoom }) {
             <div className="chat-input-footer">
               <span className="char-count">
                 {question.length} characters · Enter to send, Shift+Enter for a new line
+                {roomNotes.length > 0 && ` · Using ${roomNotes.length} note${roomNotes.length === 1 ? '' : 's'} from ${activeRoom} as context`}
               </span>
               <button
                 className="btn btn-pink"
@@ -165,6 +208,21 @@ export default function Chat({ activeRoom }) {
                 <div className="selection-banner">
                   <strong>You picked {selectedLLM.toUpperCase()}</strong>
                   <p>Saved — StudeyMate will lean on this the next time you ask something similar.</p>
+                </div>
+              )}
+
+              {selectedLLM && (walkthroughLoading || walkthrough || walkthroughError) && (
+                <div className="walkthrough-panel">
+                  <h3>Step-by-step from {selectedLLM.toUpperCase()}</h3>
+                  {walkthroughLoading && (
+                    <p className="hint-text">Breaking it down into steps…</p>
+                  )}
+                  {walkthroughError && (
+                    <div className="error small-error">{walkthroughError}</div>
+                  )}
+                  {walkthrough && !walkthroughLoading && (
+                    <MarkdownAnswer>{walkthrough.steps_text}</MarkdownAnswer>
+                  )}
                 </div>
               )}
             </>

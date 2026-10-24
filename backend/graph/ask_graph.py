@@ -46,6 +46,7 @@ class AskState(TypedDict, total=False):
     user_id: int
     question: str
     subject: Optional[str]
+    context: Optional[str]
     # set by prepare
     subject_id: Optional[int]
     detected_subject: Optional[str]
@@ -90,6 +91,7 @@ def build_ask_graph(llm_services: dict[str, Any]):
                 llm_name=llm_name,
                 subject=subject or detected_subject,
                 difficulty=difficulty,
+                context=state.get("context"),
             )
             for llm_name in llm_services
         }

@@ -746,6 +746,19 @@ h1, h2, h3, h4 {
   color: var(--pink-deep);
 }
 
+.walkthrough-panel {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: var(--cream);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+
+.walkthrough-panel h3 {
+  margin-bottom: 0.8rem;
+  color: var(--pink-deep);
+}
+
 /* skeleton "thinking" state */
 
 .response-card.skeleton {

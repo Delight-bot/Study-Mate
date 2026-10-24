@@ -13,8 +13,17 @@ class ChatRequest(BaseModel):
     """Request model for chat endpoint"""
     question: str = Field(..., min_length=1)
     subject: Optional[str] = None
+    context: Optional[str] = None
     use_profiling: bool = True
     metadata: Optional[dict] = None
+
+
+class WalkthroughRequest(BaseModel):
+    """Request model for the step-by-step walkthrough endpoint"""
+    llm_name: str
+    question: str = Field(..., min_length=1)
+    previous_answer: str
+    subject: Optional[str] = None
 
 class ChatResponse(BaseModel):
     """Response model for chat endpoint"""
