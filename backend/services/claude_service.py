@@ -6,7 +6,10 @@ import os
 class ClaudeService(BaseLLMService):
     """Service for Anthropic Claude models"""
 
-    def __init__(self, api_key: str = None, model: str = "claude-3-5-sonnet-20241022", temperature: float = 0.7, max_tokens: int = 1000):
+    # claude-3-5-sonnet-20241022 was retired; claude-haiku-4-5 is the
+    # current fast/cheap tier, matching gpt-4o-mini and gemini-3.6-flash
+    # as the comparison feature's speed/cost-conscious default.
+    def __init__(self, api_key: str = None, model: str = "claude-haiku-4-5-20251001", temperature: float = 0.7, max_tokens: int = 1000):
         api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         super().__init__(api_key, model, temperature, max_tokens)
         self.client = anthropic.AsyncAnthropic(api_key=self.api_key)
