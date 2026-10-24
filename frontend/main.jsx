@@ -10,6 +10,7 @@ import DeskAccessories from './components/DeskAccessories'
 import CatMark from './components/CatMark'
 import RoomList from './components/RoomList'
 import StudyContest from './components/StudyContest'
+import BackendStatusBanner from './components/BackendStatusBanner'
 import { ROOM_STORAGE_KEY } from './components/rooms'
 import { getSession, clearSession } from './auth'
 import 'katex/dist/katex.min.css'
@@ -62,6 +63,8 @@ function App() {
             <button className="account-logout" onClick={logOut}>Log out</button>
           </div>
         </header>
+
+        <BackendStatusBanner />
 
         <div className="app-body">
           <aside className="sidebar">

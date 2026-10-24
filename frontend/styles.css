@@ -1427,8 +1427,10 @@ h1, h2, h3, h4 {
 .auth-page {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1.5rem;
   padding: 2rem;
 }
 
@@ -1571,4 +1573,55 @@ h1, h2, h3, h4 {
 .flashcard-quality-btn {
   padding: 0.6rem 0.4rem;
   font-size: 0.85rem;
+}
+
+/* ---------- Backend-down notice (cloud speech bubble) ---------- */
+
+.cloud-bubble-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 0 1.5rem;
+  margin: 1.25rem 0;
+}
+
+.cloud-bubble {
+  position: relative;
+  max-width: 420px;
+  background: var(--paper);
+  border: 2px solid var(--pink);
+  border-radius: 36px;
+  padding: 1.1rem 1.4rem;
+  box-shadow: 0 4px 0 var(--shadow-color);
+}
+
+.cloud-bubble p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--ink);
+  text-align: center;
+}
+
+.cloud-bubble::before,
+.cloud-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  background: var(--paper);
+  border: 2px solid var(--pink);
+  border-radius: 50%;
+}
+
+.cloud-bubble::before {
+  width: 16px;
+  height: 16px;
+  bottom: -22px;
+  transform: translateX(-20px);
+}
+
+.cloud-bubble::after {
+  width: 9px;
+  height: 9px;
+  bottom: -32px;
+  transform: translateX(-30px);
 }

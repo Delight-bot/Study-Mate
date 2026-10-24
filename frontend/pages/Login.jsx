@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import axios from '../api'
 import { setSession } from '../auth'
 import CatMark from '../components/CatMark'
+import BackendStatusBanner from '../components/BackendStatusBanner'
 
 const DEMO_CREDENTIALS = { username: 'demo_user', password: 'demo1234' }
 
@@ -45,6 +46,7 @@ export default function Login({ onAuthed }) {
 
   return (
     <div className="auth-page">
+      <BackendStatusBanner />
       <div className="auth-card">
         <div className="brand auth-brand">
           <CatMark />
