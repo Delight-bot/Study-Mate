@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-studeymate}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-studeymate_dev_password}
@@ -18,6 +19,7 @@ services:
 
   qdrant:
     image: qdrant/qdrant:latest
+    restart: unless-stopped
     ports:
       - "6333:6333"
     volumes:
@@ -27,6 +29,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
@@ -40,6 +43,7 @@ services:
 
   quiz-agent:
     build: ./services/quiz-agent
+    restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
@@ -53,6 +57,7 @@ services:
 
   flashcard-agent:
     build: ./services/flashcard-agent
+    restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
@@ -66,6 +71,7 @@ services:
 
   notes-agent:
     build: ./services/notes-agent
+    restart: unless-stopped
     env_file:
       - ./backend/.env
     environment:
@@ -82,6 +88,7 @@ services:
 
   gateway:
     build: ./gateway
+    restart: unless-stopped
     environment:
       LLM_ROUTER_URL: http://llm-router:8000
       QUIZ_AGENT_URL: http://quiz-agent:8001
@@ -97,6 +104,7 @@ services:
 
   frontend:
     build: ./frontend
+    restart: unless-stopped
     ports:
       - "3001:80"
     depends_on:
