@@ -1469,3 +1469,93 @@ h1, h2, h3, h4 {
 .auth-demo-btn {
   margin-top: 0.8rem;
 }
+
+/* ---------- Flashcards ---------- */
+
+.flashcards-page {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 6px 0 var(--shadow-color);
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.flashcard-review {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.flashcard-progress {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.flashcard-flip-container {
+  min-height: 220px;
+  perspective: 1400px;
+  cursor: pointer;
+}
+
+.flashcard-inner {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.flashcard-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+.flashcard-face {
+  position: absolute;
+  inset: 0;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--cream);
+}
+
+.flashcard-face-back {
+  transform: rotateY(180deg);
+  background: var(--pink-pale);
+  border-color: var(--pink);
+}
+
+.flashcard-text {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.flashcard-hint {
+  position: absolute;
+  bottom: 0.8rem;
+  left: 0;
+  right: 0;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.flashcard-quality-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+}
+
+.flashcard-quality-btn {
+  padding: 0.6rem 0.4rem;
+  font-size: 0.85rem;
+}

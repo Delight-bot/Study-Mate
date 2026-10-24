@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { HashRouter, Routes, Route, NavLink } from 'react-router-dom'
 import Chat from './pages/Chat'
 import Dashboard from './pages/Dashboard'
+import Flashcards from './pages/Flashcards'
 import Login from './pages/Login'
 import StudyTimer from './components/StudyTimer'
 import DeskAccessories from './components/DeskAccessories'
@@ -49,6 +50,9 @@ function App() {
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>
               Chat
             </NavLink>
+            <NavLink to="/flashcards" className={({ isActive }) => (isActive ? 'active' : '')}>
+              Flashcards
+            </NavLink>
             <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
               Dashboard
             </NavLink>
@@ -72,6 +76,7 @@ function App() {
           <main className="main">
             <Routes>
               <Route path="/" element={<Chat activeRoom={activeRoom} />} />
+              <Route path="/flashcards" element={<Flashcards activeRoom={activeRoom} />} />
               <Route path="/dashboard" element={<Dashboard />} />
             </Routes>
           </main>

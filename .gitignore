@@ -67,3 +67,6 @@ k8s/secret.yaml
 
 # Claude Code local tool settings (machine-specific, not project content)
 .claude/settings.local.json
+
+# Personal scratch notes — never committed, by design
+*.local.md
